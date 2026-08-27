@@ -26,11 +26,11 @@ This document helps AI agents quickly understand the **Rooted Core API** codebas
 | `rooted_app`   | Mobile web / PWA client (Flutter or web — see rooted-docs)  |
 | `rooted-docs`  | PRD, API spec, database design, product docs                  |
 
-### Architecture status (Phase 0 → v1)
+### Architecture status
 
-The repo is **migrating** from a handler-centric layout toward the **NewLife Core API clean-architecture template** (ADR 0001). Today you will still see `portal/handlers/` and a monolithic `portal/container.py`. New v1 features should follow the **target** layout under `portal/domain/`, `portal/application/`, `portal/infrastructure/`, and delivery layers — do not extend legacy patterns unless fixing existing bible/import tooling.
+Adopts **newlife-core-api** Clean Architecture (ADR 0001): `RootContainer`, three ASGI mounts (`portal/apps.py`), platform modules under `portal/application/`. **Bible** is the first completed vertical slice (`application/bible/`). Legacy `portal/handlers/` is removed.
 
-**Out of scope for Rooted:** facility booking, org/ministry ERP, Microsoft SSO — those exist in `newlife-core-api`, not here.
+**Out of scope for Rooted:** facility booking, org/ministry ERP, Microsoft SSO.
 
 ---
 
@@ -66,8 +66,8 @@ Copy `example.env` → `.env` before running locally.
 
 | URL                                      | Description                          |
 | ---------------------------------------- | ------------------------------------ |
-| `http://127.0.0.1:8000/api/healthz`      | Public health check                  |
-| `http://127.0.0.1:8000/api/v1/...`       | End-user app API (see rooted-docs)   |
+| `http://127.0.0.1:8000/healthz`          | Public health check                  |
+| `http://127.0.0.1:8000/api/v1/...`       | End-user app API                     |
 | `http://127.0.0.1:8000/admin/api/v1/...` | Admin API (authenticated + RBAC)     |
 | `http://127.0.0.1:8000/docs`             | OpenAPI                              |
 
@@ -100,10 +100,8 @@ HTTP Request
 | **Infrastructure** | `portal/infrastructure/`                                        | `persistence/repositories/`, `cache/`        |
 | **Delivery**       | `portal/routers/`, `portal/serializers/`, `portal/middlewares/` | HTTP, API contracts                          |
 | **ORM**            | `portal/models/`                                                | SQLAlchemy models only                       |
-| **DI**             | `portal/containers/`, `portal/container.py`                     | Composition root (evolving)                  |
-| **Legacy (transitional)** | `portal/handlers/`                                         | Existing bible import/read paths — shrink over time |
-| **Admin sub-app**  | `portal/apps/admin/`                                            | Mounted admin FastAPI app                    |
-| **CLI**            | `portal/cli/`                                                   | Click entrypoints; heavy logic → application |
+| **DI**             | `portal/containers/`, `portal/container.py`                     | `RootContainer` + core/admin/app/events |
+| **CLI**            | `portal/cli/`                                                   | Click entrypoints; seed logic in `application/cli/` |
 
 ### Hard dependency rules
 
@@ -117,13 +115,13 @@ HTTP Request
 
 ## 4. Application Entry & HTTP Layout
 
-### Current mount structure (`portal/main.py`)
+### ASGI mount structure (`portal/apps.py`)
 
 ```
-FastAPI  portal.main:app
-├── /api/*           → main api_router (v1 under /api/v1)
-├── mount /admin     → Admin sub-app (/admin/api/v1/…)
-└── middleware       → CORS, CoreRequestMiddleware, AuthMiddleware
+FastAPI (public)  portal.main:app
+├── GET /healthz
+├── mount /admin  →  /admin/api/v1/...  (AuthMiddleware + RBAC)
+└── mount /api    →  /api/v1/...        (member API)
 ```
 
 - **App API prefix:** `/api/v1` (auth, devotion, journal, fellowship, bible, sync, reports — see spec)
@@ -167,11 +165,11 @@ Follow `rooted-docs/docs/backend/database-design.md` for table groupings (`bible
 
 ## 6. Dependency Injection
 
-**Composition root:** `portal/container.py` → `Container` (will align with `RootContainer` + nested containers per ADR 0001).
+**Composition root:** `portal/container.py` → `RootContainer` with `core`, `admin`, `app`, `events`.
 
-- Routers/handlers inject providers via `@inject` + `Depends(Provide[Container…])` where wired today.
-- Repositories should receive request-scoped SQLAlchemy session from `CoreRequestMiddleware`.
-- After adding a service, register in container modules — mirror `newlife-core-api` when split lands.
+- Member bible: `Container.bible_service` via `AppContainer`
+- Admin platform: auth, rbac, locale, content via `AdminContainer`
+- Routers: `@inject` + `Depends(Provide[Container.<service>])`
 
 ---
 
@@ -237,7 +235,7 @@ See ADR 0003.
 
 ### Tracing
 
-Use `@distributed_trace()` from `portal.libs.decorators.sentry_tracer` on handlers/providers/services (project standard).
+Use `@distributed_trace()` from `portal.libs.tracing.distributed_trace` on application services.
 
 ### Database session
 
@@ -255,7 +253,8 @@ AWS S3 via configured providers when uploading user or content media (see config
 ```
 tests/
 ├── conftest.py
-├── fixtures/
+├── application/          # mirror portal/application/
+│   └── bible/
 └── test_*.py
 ```
 
@@ -277,7 +276,7 @@ tests/
 7. **Tests** — application service tests with stub repos
 8. **Docs** — update `rooted-docs` API spec when contract changes
 
-Pick the closest existing slice (`bible` today) only for **delivery wiring** examples until application layer exists for that context.
+Pick **`application/bible/`** as the reference vertical slice for new domains.
 
 ---
 
@@ -315,12 +314,11 @@ Pick the closest existing slice (`bible` today) only for **delivery wiring** exa
 | `README.md`                        | Setup                                |
 | `.cursor/rules/standard.mdc`       | Coding standards                     |
 | `pyproject.toml`                   | uv + Ruff                            |
-| `portal/main.py`                   | App factory, middleware, admin mount |
-| `portal/container.py`              | DI wiring                            |
-| `portal/config.py`                 | Settings                             |
-| `portal/routers/apis/v1/`          | App API routes                       |
-| `portal/handlers/bible.py`         | Legacy bible handler (transitional)  |
-| `portal/cli/main.py`               | Bible import/dump CLI                |
+| `portal/apps/__init__.py`          | ASGI mounts, middleware stacks       |
+| `portal/containers/`               | RootContainer sub-containers         |
+| `portal/application/bible/`        | Reference vertical slice             |
+| `portal/routers/apis/v1/bible.py`  | Bible HTTP delivery                  |
+| `portal/serializers/apis/v1/bible.py` | camelCase API models              |
 | `example.env`                      | Required env vars                    |
 
 ---
@@ -330,7 +328,8 @@ Pick the closest existing slice (`bible` today) only for **delivery wiring** exa
 | Task type              | Start here                                              |
 | ---------------------- | ------------------------------------------------------- |
 | New app endpoint       | `rooted-docs` API spec → router → service → repo → model |
-| Bible content pipeline | `portal/cli/`, `portal/handlers/bible.py`, bible models |
+| Bible API / reader     | `application/bible/` → `infrastructure/.../bible_repository.py` |
+| Bible content pipeline | `portal/cli/` import/dump commands                              |
 | Privacy bug            | Trace fellowship queries — journal tables must be absent |
 | API JSON shape         | Serializers + ADR 0002                                   |
 | Auth                   | JWT providers, `AuthMiddleware`, ADR 0003                 |

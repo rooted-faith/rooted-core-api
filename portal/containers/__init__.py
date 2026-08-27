@@ -1,11 +1,11 @@
 """
-Root DI container: composes core, admin, and events sub-containers.
+Root DI container: composes core, admin, app, and events sub-containers.
 """
 
 from dependency_injector import containers, providers
 
-from portal import handlers
 from portal.containers.admin import AdminContainer
+from portal.containers.app import AppContainer
 from portal.containers.core import CoreContainer
 from portal.containers.events import EventsContainer
 from portal.events.bus import EventBus
@@ -18,7 +18,6 @@ class RootContainer(containers.DeclarativeContainer):
         modules=[],
         packages=[
             "portal.application",
-            "portal.handlers",
             "portal.routers",
             "portal.routers.admin",
             "portal.middlewares",
@@ -27,6 +26,7 @@ class RootContainer(containers.DeclarativeContainer):
 
     core = providers.Container(CoreContainer)
     admin: AdminContainer = providers.Container(AdminContainer, core=core)
+    app: AppContainer = providers.Container(AppContainer, core=core)
     events = providers.Container(EventsContainer, core=core)
 
     config = core.config
@@ -58,11 +58,7 @@ class RootContainer(containers.DeclarativeContainer):
     file_service = admin.content.file_service
     legal_document_service = admin.content.legal_document_service
 
-    bible_handler = providers.Factory(
-        handlers.BibleHandler,
-        session=core.request_session,
-        redis_client=core.redis_client,
-    )
+    bible_service = app.bible_service
 
     event_bus = events.event_bus
 
