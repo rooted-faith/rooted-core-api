@@ -2,18 +2,17 @@
 Permission Checker Service
 """
 
-from typing import TYPE_CHECKING
+from typing import List, Optional
 from uuid import UUID
+
+from redis.asyncio import Redis
 
 from portal.config import settings
 from portal.exceptions.responses import UnauthorizedException
+from portal.infrastructure.cache.permission_cache import PermissionCache
 from portal.libs.consts.cache_keys import CacheKeys
-from portal.libs.contexts.user_context import get_user_context
+from portal.libs.contexts.user_context import UserContext, get_user_context
 from portal.libs.database import RedisPool
-from portal.libs.decorators.sentry_tracer import distributed_trace
-
-if TYPE_CHECKING:
-    from redis.asyncio import Redis
 
 
 class PermissionChecker:
@@ -22,10 +21,7 @@ class PermissionChecker:
     def __init__(self, redis_client: RedisPool):
         self._redis: Redis = redis_client.create(db=settings.REDIS_DB)
 
-    @distributed_trace()
-    async def has_permission(
-        self, permission_code: str, user_id: UUID | None = None
-    ) -> bool:
+    async def has_permission(self, permission_code: str, user_id: Optional[UUID] = None) -> bool:
         """
         Check if user has specific permission
         Permission is checked against Redis cache only (single source of truth)
@@ -33,7 +29,9 @@ class PermissionChecker:
         :param user_id: User ID, if None, get from context
         :return: True if user has permission
         """
-        user_context = get_user_context()
+        user_context: Optional[UserContext] = get_user_context()
+        if not user_context:
+            raise UnauthorizedException(detail="Unauthorized")
 
         # Superuser has all permissions
         if user_context.is_superuser:
@@ -48,13 +46,12 @@ class PermissionChecker:
 
         # Check permission cache (using hash field)
         # Redis cache is the single source of truth for permissions
-        key = CacheKeys(resource="permission").add_attribute(str(user_id)).build()
-        return await self._redis.hexists(key, permission_code)
+        key = PermissionCache.permission_key(user_id)
+        has_permission = await self._redis.hexists(key, permission_code)
 
-    @distributed_trace()
-    async def has_any_permission(
-        self, permission_codes: list[str], user_id: UUID | None = None
-    ) -> bool:
+        return has_permission
+
+    async def has_any_permission(self, permission_codes: List[str], user_id: Optional[UUID] = None) -> bool:
         """
         Check if user has any of the specified permissions
         :param permission_codes: List of permission codes
@@ -66,10 +63,7 @@ class PermissionChecker:
                 return True
         return False
 
-    @distributed_trace()
-    async def has_all_permissions(
-        self, permission_codes: list[str], user_id: UUID | None = None
-    ) -> bool:
+    async def has_all_permissions(self, permission_codes: List[str], user_id: Optional[UUID] = None) -> bool:
         """
         Check if user has all of the specified permissions
         :param permission_codes: List of permission codes
@@ -81,8 +75,7 @@ class PermissionChecker:
                 return False
         return True
 
-    @distributed_trace()
-    async def get_user_permissions(self, user_id: UUID | None = None) -> list[str]:
+    async def get_user_permissions(self, user_id: Optional[UUID] = None) -> List[str]:
         """
         Get all permissions for user
         Permissions are retrieved from Redis cache only (single source of truth)
@@ -90,6 +83,8 @@ class PermissionChecker:
         :return: List of permission codes
         """
         user_context = get_user_context()
+        if not user_context:
+            raise UnauthorizedException(detail="Unauthorized")
 
         if user_id is None:
             user_id = user_context.user_id
@@ -99,9 +94,6 @@ class PermissionChecker:
 
         # Get permissions from cache (hash keys)
         # Redis cache is the single source of truth for permissions
-        key = CacheKeys(resource="permission").add_attribute(str(user_id)).build()
+        key = PermissionCache.permission_key(user_id)
         permission_codes = await self._redis.hkeys(key)
-        return [
-            code.decode() if isinstance(code, bytes) else code
-            for code in permission_codes
-        ]
+        return [code.decode() if isinstance(code, bytes) else code for code in permission_codes]

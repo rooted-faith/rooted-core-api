@@ -1,22 +1,30 @@
 """
 Request Context (per-request)
 """
-from contextvars import ContextVar, Token
 
-from pydantic import BaseModel
+from contextvars import ContextVar, Token
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from portal.application.auth.results import HeaderInfo
 
 
 class RequestContext(BaseModel):
     """Per-request HTTP information"""
 
-    ip: str | None = None
-    client_ip: str | None = None
-    user_agent: str | None = None
-    method: str | None = None
-    host: str | None = None
-    url: str | None = None
-    path: str | None = None
-    request_id: str | None = None
+    request_id: Optional[str] = None
+    ip: Optional[str] = None
+    client_ip: Optional[str] = None
+    method: Optional[str] = None
+    host: Optional[str] = None
+    url: Optional[str] = None
+    path: Optional[str] = None
+    headers: HeaderInfo
+    locale_candidates: list[str] = Field(default_factory=list)
+    resolved_locale_code: Optional[str] = None
+    resolved_locale_id: Optional[UUID] = None
 
 
 request_context_var: ContextVar[RequestContext] = ContextVar("RequestContext")
@@ -29,11 +37,28 @@ def set_request_context(context: RequestContext) -> Token:
     return request_context_var.set(context)
 
 
-def get_request_context() -> RequestContext:
+def get_request_context() -> Optional[RequestContext]:
     """
     Get current request's request context.
     """
-    return request_context_var.get()
+    try:
+        return request_context_var.get()
+    except LookupError:
+        return None
+
+
+def get_resolved_locale_id() -> Optional[UUID]:
+    """
+    Return resolved locale id for the current request, or None if context is not set
+    (e.g. background task) or locale is unresolved.
+    """
+    try:
+        ctx = get_request_context()
+    except LookupError:
+        return None
+    if ctx is None:
+        return None
+    return ctx.resolved_locale_id
 
 
 def reset_request_context(token) -> None:

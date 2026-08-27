@@ -9,7 +9,7 @@ from .import_bible import import_bible_data_process
 
 @click.group()
 def cli():
-    """Rooted Portal API CLI"""
+    """Rooted Core API CLI"""
 
 
 @cli.command(name="dump-bible")

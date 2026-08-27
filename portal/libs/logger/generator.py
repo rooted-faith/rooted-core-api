@@ -1,25 +1,19 @@
 """
 Logger generator
 """
+
 import logging
 import sys
 
-from .const import (
-    DEFAULT_FORMAT,
-    DEFAULT_FORMAT_DATE,
-    DEFAULT_LOG_LEVEL,
-    MAP_ENV_LEVEL,
-)
+from .const import DEFAULT_FORMAT, DEFAULT_FORMAT_DATE, DEFAULT_LOG_LEVEL, MAP_ENV_LEVEL
 
 
 class LoggerGenerator:
     """Logger generator"""
+
     def __init__(self, logger_name: str):
         self.logger_name = logger_name
-        self.formatter = logging.Formatter(
-            DEFAULT_FORMAT,
-            datefmt=DEFAULT_FORMAT_DATE
-        )
+        self.formatter = logging.Formatter(DEFAULT_FORMAT, datefmt=DEFAULT_FORMAT_DATE)
         self.log_level = DEFAULT_LOG_LEVEL
         self.handlers = []
 
@@ -38,7 +32,7 @@ class LoggerGenerator:
         :return:
         """
         env = env.lower()
-        if env in MAP_ENV_LEVEL:
+        if env in MAP_ENV_LEVEL.keys():
             self.log_level = MAP_ENV_LEVEL[env]
         else:
             self.log_level = logging.INFO

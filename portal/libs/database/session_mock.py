@@ -4,9 +4,8 @@ import hashlib
 import inspect
 import json
 import uuid
-from collections.abc import Callable
-from typing import Any
-from unittest.mock import MagicMock
+from typing import Any, Callable, Optional, Type, Union
+from unittest.mock import AsyncMock, MagicMock
 
 import sqlalchemy as sa
 from pydantic import BaseModel
@@ -25,11 +24,12 @@ class DateEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
             return obj.strftime('%Y-%m-%d %H:%M:%S')
-        if isinstance(obj, datetime.date):
+        elif isinstance(obj, datetime.date):
             return obj.strftime("%Y-%m-%d")
-        if isinstance(obj, uuid.UUID):
+        elif isinstance(obj, uuid.UUID):
             return str(obj)
-        return json.JSONEncoder.default(self, obj)
+        else:
+            return json.JSONEncoder.default(self, obj)
 
 
 class SessionMockError(Exception):
@@ -64,7 +64,7 @@ class SelectMock(_Select):
         self._session.set_mock(self._select.statement, mock)
         return mock
 
-    def mock_fetchdict(self, key: str, value: str | None = None, return_value: Any = None) -> MagicMock:
+    def mock_fetchdict(self, key: str, value: str = None, return_value: Any = None) -> MagicMock:
         """Mock the fetchdict method"""
         mock = MagicMock(return_value=return_value)
         # noinspection PyUnresolvedReferences
@@ -101,7 +101,7 @@ class SelectMock(_Select):
 
 
 class UpdateMock(_Update):
-    def mock(self, return_value: Any = None, name: str | None = None) -> MagicMock:
+    def mock(self, return_value: Any = None, name: str = None) -> MagicMock:
         mock = MagicMock(return_value=return_value)
         # noinspection PyUnresolvedReferences
         self._session.set_mock(self._update, mock, name=name)
@@ -109,7 +109,7 @@ class UpdateMock(_Update):
 
 
 class DeleteMock(_Delete):
-    def mock(self, return_value: Any = None, name: str | None = None) -> MagicMock:
+    def mock(self, return_value: Any = None, name: str = None) -> MagicMock:
         mock = MagicMock(return_value=return_value)
         # noinspection PyUnresolvedReferences
         self._session.set_mock(self._delete, mock, name=name)
@@ -117,7 +117,7 @@ class DeleteMock(_Delete):
 
 
 class InsertMock(_Insert):
-    def mock(self, return_value: Any = None, name: str | None = None) -> MagicMock:
+    def mock(self, return_value: Any = None, name: str = None) -> MagicMock:
         mock = MagicMock(return_value=return_value)
         # noinspection PyUnresolvedReferences
         self._session.set_mock(self._insert, mock, name=name)
@@ -125,23 +125,16 @@ class InsertMock(_Insert):
 
 
 class SessionMock(Session):
-    def __init__(
-        self,
-        timeout: float | None = None,
-        echo: bool | None = None,
-        loop: asyncio.AbstractEventLoop | None = None,
-        use_poll: bool | None = None,
-        raise_on_unmatch: bool = False
-    ):
+    def __init__(self, timeout: float = None, echo: bool = None, loop: asyncio.AbstractEventLoop = None, use_poll: bool = None, raise_on_unmatch: bool = False):
         super().__init__(timeout, echo, loop, use_poll)
         self._statement_mocks: dict[str, MagicMock] = {}
         self._raise_on_unmatch = raise_on_unmatch
 
-    def set_mock(self, statement: Any, mock: MagicMock, params: tuple | None = None, name: str | None = None):
+    def set_mock(self, statement: Any, mock: MagicMock, params: tuple = None, name: str = None):
         key, _ = self._to_key(statement, params)
         self._statement_mocks[key] = mock
 
-    def _to_key(self, statement: Any, params: tuple | None = None):
+    def _to_key(self, statement: Any, params: tuple = None):
         output_params = None
         if isinstance(statement, str):
             strs = [statement]
@@ -162,7 +155,7 @@ class SessionMock(Session):
     async def _ensure_transaction(self, lock: bool = True):
         pass
 
-    def select(self, *columns: sa.Column | TableTypes | Callable, table: type[sa.Table] | None = None) -> SelectMock:
+    def select(self, *columns: Union[sa.Column, TableTypes, Callable], table: Type[sa.Table] = None) -> SelectMock:
         filtered_columns = []
         for column in columns:
             if column is None or column is False:
@@ -179,13 +172,13 @@ class SessionMock(Session):
                 filtered_columns.append(column)
         return SelectMock(filtered_columns, table, session=self)
 
-    def insert(self, table: type[sa.Table]) -> InsertMock:
+    def insert(self, table: Type[sa.Table]) -> InsertMock:
         return InsertMock(PgInsert(table), self)
 
-    def delete(self, table: type[sa.Table]) -> DeleteMock:
+    def delete(self, table: Type[sa.Table]) -> DeleteMock:
         return DeleteMock(sa.delete(table), self)
 
-    def update(self, table: type[sa.Table]) -> UpdateMock:
+    def update(self, table: Type[sa.Table]) -> UpdateMock:
         return UpdateMock(sa.update(table), self)
 
     async def commit(self):
@@ -217,9 +210,9 @@ class SessionMock(Session):
     def mock_execute(self, statement: Any, *params, return_value: Any = None):
         return self.mock_fetch(statement, params, return_value)
 
-    async def fetch(self, statement, *params, timeout: float | None = None, as_model: type[BaseModel] | None = None) -> Any:
+    async def fetch(self, statement, *params, timeout: float = None, as_model: Type[BaseModel] = None) -> Any:
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -228,9 +221,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchgroup(self, statement, *params, timeout: float | None = None, groupby: str | None = None, as_model: type[BaseModel] | None = None):
+    async def fetchgroup(self, statement, *params, timeout: float = None, groupby: str = None, as_model: Type[BaseModel] = None):
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -239,9 +232,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchpages(self, statement, *params, timeout: float | None = None, as_model: type[BaseModel] | None = None):
+    async def fetchpages(self, statement, *params, timeout: float = None, as_model: Type[BaseModel] = None):
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -250,9 +243,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchdict(self, statement, *params, timeout: float | None = None, key: str | None = None, value: str | None = None, as_model: type[BaseModel] | None = None):
+    async def fetchdict(self, statement, *params, timeout: float = None, key: str = None, value: str = None, as_model: Type[BaseModel] = None):
         key_, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key_, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key_, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -261,9 +254,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchval(self, statement: str | Any, *params, timeout: float | None = None):
+    async def fetchval(self, statement: Union[str, Any], *params, timeout: float = None):
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -272,9 +265,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchrow(self, statement, *params, timeout: float | None = None, as_model: type[BaseModel] | None = None):
+    async def fetchrow(self, statement, *params, timeout: float = None, as_model: Type[BaseModel] = None):
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -283,9 +276,9 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def fetchvals(self, statement, *params, timeout: float | None = None):
+    async def fetchvals(self, statement, *params, timeout: float = None):
         key, output_params = self._to_key(statement, params)
-        mock: MagicMock | None = self._statement_mocks.get(key, None)
+        mock: Optional[MagicMock] = self._statement_mocks.get(key, None)
         if not mock:
             if self._raise_on_unmatch:
                 raise SessionMockError(f'没有符合条件的 Mock 函数 ({statement})')
@@ -294,7 +287,7 @@ class SessionMock(Session):
             return MagicMock(return_value=None)()
         return mock()
 
-    async def execute(self, statement, *params, append_statement: str | None = None, timeout: float | None = None):
+    async def execute(self, statement, *params, append_statement: str = None, timeout: float = None):
         return await self.fetch(statement, *params, timeout=timeout, as_model=None)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

@@ -1,26 +1,22 @@
 """
-Exception responses
+Top-level package for responses of exceptions.
 """
-from .auth import InvalidTokenException, UnauthorizedException
-from .base import (
-    ApiBaseException,
-    BadRequestException,
-    ConflictErrorException,
-    EntityTooLargeException,
-    NotFoundException,
-    NotImplementedException,
-    ParamError,
-)
+
+from .auth import *
+from .base import *
 
 __all__ = [
+    # base
     "ApiBaseException",
-    "BadRequestException",
-    "ConflictErrorException",
-    "EntityTooLargeException",
-    "InvalidTokenException",
-    "NotFoundException",
-    "NotImplementedException",
-    "ParamError",
-    "UnauthorizedException",
+    "BadRequestException",  # 400
+    "ParamError",  # 400
+    "NotFoundException",  # 404
+    "ConflictErrorException",  # 409
+    "EntityTooLargeException",  # 413
+    "NotImplementedException",  # 501
+    # auth
+    "InvalidTokenException",  # 401
+    "UnauthorizedException",  # 401
+    "RefreshTokenInvalidException",  # 401
+    "ForbiddenException",  # 403
 ]
-

@@ -1,6 +1,10 @@
 """
-Admin sub application
+DEPRECATED: Legacy admin sub-app pattern.
+
+Use portal.apps.get_admin_application() mount via get_main_application() instead.
+This module is kept temporarily for reference during migration and will be removed in Phase 4+.
 """
+
 from fastapi import FastAPI
 
 from portal.container import Container
@@ -11,7 +15,7 @@ from .routers import register_routers
 
 def create_admin_app(container: Container) -> FastAPI:
     """
-    Create admin sub application
+    Create admin sub application (deprecated).
     :param container: Dependency injection container
     :return: FastAPI application instance
     """
@@ -22,11 +26,7 @@ def create_admin_app(container: Container) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Share container with admin app
     admin_app.container = container
-
-    # Register routers
     register_routers(admin_app)
 
     return admin_app
-

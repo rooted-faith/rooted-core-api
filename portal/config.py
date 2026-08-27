@@ -18,8 +18,8 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
 )
 
+from portal.libs.rate_limit.config import RateLimitersConfig
 from portal.libs.shared import Converter
-from portal.schemas.rate_limiter import RateLimitersConfig
 
 load_dotenv()
 
@@ -61,7 +61,7 @@ class Configuration(BaseSettings):
         return (CustomSource(settings_cls),)
 
     # [App Base]
-    APP_NAME: str = "rooted-portal-api"
+    APP_NAME: str = "rooted-core-api"
     ENV: str = os.getenv(key="ENV", default="dev").lower()
     APP_VERSION: str = os.getenv(key="VERSION", default="v0.1.0")
     IS_PROD: bool = ENV == "prod"
@@ -73,10 +73,13 @@ class Configuration(BaseSettings):
     ADMIN_PORTAL_URL: str = os.getenv(
         key="ADMIN_PORTAL_URL", default="http://localhost:5173"
     )
+    DEFAULT_LOCALE: str = os.getenv(key="DEFAULT_LOCALE", default="en")
 
     # [FastAPI]
     HOST: str = os.getenv(key="HOST", default="127.0.0.1")
     PORT: int = os.getenv(key="PORT", default=8000)
+    DOCS_BASIC_AUTH_USERNAME: str = os.getenv(key="DOCS_BASIC_AUTH_USERNAME", default="developer")
+    DOCS_BASIC_AUTH_PASSWORD: str = os.getenv(key="DOCS_BASIC_AUTH_PASSWORD", default="developer")
 
     # [CORS]
     CORS_ALLOWED_ORIGINS: list[str] = os.getenv(
@@ -84,11 +87,15 @@ class Configuration(BaseSettings):
     ).split()
     CORS_ALLOW_ORIGINS_REGEX: str | None = os.getenv(key="CORS_ALLOW_ORIGINS_REGEX")
 
-    # [AWS]
-    # AWS_STORAGE_BUCKET_NAME: str = APP_NAME
-    # AWS_ACCESS_KEY_ID: str = os.getenv(key="AWS_ACCESS_KEY_ID")
-    # AWS_SECRET_ACCESS_KEY: str = os.getenv(key="AWS_SECRET_ACCESS_KEY")
-    # AWS_S3_REGION_NAME: str = os.getenv(key="AWS_S3_REGION_NAME")
+    # [STORAGE]
+    STORAGE_BACKEND: str = os.getenv(key="STORAGE_BACKEND", default="azure_blob")
+    AZURE_STORAGE_ACCOUNT_NAME: str | None = os.getenv(key="AZURE_STORAGE_ACCOUNT_NAME", default=None)
+    AZURE_STORAGE_CONNECTION_STRING: str | None = os.getenv(key="AZURE_STORAGE_CONNECTION_STRING", default=None)
+    AZURE_STORAGE_CONTAINER_NAME: str = os.getenv(key="AZURE_STORAGE_CONTAINER_NAME", default="files")
+    AZURE_STORAGE_REGION: str = os.getenv(key="AZURE_STORAGE_REGION", default="eastus")
+    AZURE_STORAGE_BLOB_PREFIX: str = os.getenv(key="AZURE_STORAGE_BLOB_PREFIX", default=f"original_files/{ENV}")
+    AZURE_BLOB_CACHE_CONTROL: str = os.getenv(key="AZURE_BLOB_CACHE_CONTROL", default="max-age=86400")
+    SIGNED_URL_EXPIRY_SECONDS: int = int(os.getenv(key="SIGNED_URL_EXPIRY_SECONDS", default="3600"))
     AWS_S3_CACHE_CONTROL: str = os.getenv(
         key="AWS_S3_CACHE_CONTROL", default="max-age=86400"
     )
@@ -99,6 +106,7 @@ class Configuration(BaseSettings):
     # [Redis]
     REDIS_URL: str | None = os.getenv(key="REDIS_URL")
     REDIS_DB: int = int(os.getenv(key="REDIS_DB", default="0"))
+    RATE_LIMITER_REDIS_DB: int = int(os.getenv(key="RATE_LIMITER_REDIS_DB", default="10"))
 
     # [Database]
     DATABASE_HOST: str = os.getenv(key="DATABASE_HOST", default="localhost")
@@ -123,7 +131,7 @@ class Configuration(BaseSettings):
     )
 
     # [JWT]
-    JWT_SECRET_KEY: str = os.getenv(key="JWT_SECRET_KEY")
+    JWT_SECRET_KEY: str = os.getenv(key="JWT_SECRET_KEY", default="change-me-in-production")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
         os.getenv(key="JWT_ACCESS_TOKEN_EXPIRE_MINUTES", default="15")
     )
@@ -143,6 +151,9 @@ class Configuration(BaseSettings):
         key="PASSWORD_RESET_TOKEN_SALT", default=""
     )
 
+    # [Member web apps — Origin -> app_code for /api/v1 auth]
+    MEMBER_WEB_APPS: str = os.getenv(key="MEMBER_WEB_APPS", default="rooted-app|http://localhost:5174")
+
     # [Token Blacklist]
     TOKEN_BLACKLIST_REDIS_DB: int = int(
         os.getenv(key="TOKEN_BLACKLIST_REDIS_DB", default="1")
@@ -152,7 +163,6 @@ class Configuration(BaseSettings):
     )
 
     # [Rate Limiting]
-    # Rate limiters configuration is loaded from the YAML file, see `_load_rate_limiters_config` method
     RATE_LIMITERS_CONFIG: RateLimitersConfig | None = None
 
     # [Sentry]
@@ -204,7 +214,6 @@ class Configuration(BaseSettings):
                     f"Failed to load rate limiters config from {candidate_path}: {exc}"
                 )
 
-        # Use default values if no configuration is loaded
         if not self.RATE_LIMITERS_CONFIG:
             logger = logging.getLogger(self.APP_NAME)
             logger.warning("Rate limiters config not found, using default values")

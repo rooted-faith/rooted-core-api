@@ -1,4 +1,4 @@
-# Rooted Portal API - 项目架构文档
+# Rooted Core API - 项目架构文档
 
 ## 目录
 
@@ -19,7 +19,7 @@
 
 ## 1. 项目概述
 
-Rooted Portal API 是一个基于 FastAPI 构建的现代化 RESTful API 服务，采用模块化架构设计，支持多应用挂载（Sub Application）模式。
+Rooted Core API 是一个基于 FastAPI 构建的现代化 RESTful API 服务，采用模块化架构设计，支持多应用挂载（Sub Application）模式。
 
 ### 核心特性
 
@@ -44,7 +44,7 @@ Rooted Portal API 是一个基于 FastAPI 构建的现代化 RESTful API 服务�
 
 ### 依赖管理
 
-- **Poetry**: 包管理和依赖管理工具
+- **uv**: 包管理和依赖管理工具
 
 ### 数据库
 
@@ -127,7 +127,7 @@ Rooted Portal API 是一个基于 FastAPI 构建的现代化 RESTful API 服务�
 ## 4. 目录结构
 
 ```
-rooted-portal-api/
+rooted-core-api/
 ├── portal/                          # 主应用包
 │   ├── __init__.py                  # 包初始化
 │   ├── __main__.py                  # CLI 入口点
@@ -218,7 +218,7 @@ rooted-portal-api/
 ├── docs/                          # 文档
 │   └── ARCHITECTURE.md           # 本文档
 │
-├── pyproject.toml                 # Poetry 配置
+├── pyproject.toml                 # uv 配置
 ├── alembic.ini                    # Alembic 配置
 ├── example.env                    # 环境变量示例
 └── README.md                      # 项目说明
@@ -572,7 +572,7 @@ Admin Sub Application 是一个独立的 FastAPI 应用，通过 `mount` 方式�
 ```python
 def create_admin_app(container: Container) -> FastAPI:
     admin_app = FastAPI(
-        title="Rooted Portal Admin API",
+        title="Rooted Core Admin API",
         lifespan=lifespan,
     )
     admin_app.container = container
@@ -701,13 +701,13 @@ jwt_provider = providers.Singleton(JWTProvider)
 
 ```bash
 # 创建迁移
-poetry run alembic revision --autogenerate -m "description"
+uv run alembic revision --autogenerate -m "description"
 
 # 执行迁移
-poetry run alembic upgrade head
+uv run alembic upgrade head
 
 # 回滚迁移
-poetry run alembic downgrade -1
+uv run alembic downgrade -1
 ```
 
 ---
@@ -773,19 +773,19 @@ poetry run alembic downgrade -1
 
 ```bash
 # 安装依赖
-poetry install
+uv sync
 
 # 运行应用
-poetry run uvicorn portal:app --reload
+uv run uvicorn portal:app --reload
 
 # 运行测试
-poetry run pytest
+uv run pytest
 
 # 数据库迁移
-poetry run alembic upgrade head
+uv run alembic upgrade head
 
 # 代码格式化（如果配置了）
-poetry run black .
+uv run black .
 ```
 
 ### C. 相关文档
@@ -799,4 +799,4 @@ poetry run black .
 
 **文档版本**: 1.0.0  
 **最后更新**: 2025-01-XX  
-**维护者**: Rooted Portal Team
+**维护者**: Rooted Core Team

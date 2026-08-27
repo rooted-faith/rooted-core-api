@@ -1,4 +1,3 @@
 """
-Providers package
+Top-level package for providers.
 """
-

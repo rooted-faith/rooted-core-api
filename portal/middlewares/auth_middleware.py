@@ -1,22 +1,299 @@
 """
 Authentication and Authorization Middleware
 """
-# TODO: Implement full authentication middleware
-# This is a placeholder - full implementation needed from conf-portal-api
-# Key components:
-# - Token verification
-# - Permission checking
-# - User context setup
 
+from collections import defaultdict
+from typing import Optional
+
+from dependency_injector.wiring import Provide, inject
 from fastapi import Request
+from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse, Response
+
+from portal.application.auth.member_web_app_resolver import resolve_request_app_code
+from portal.application.auth.results import AccessTokenPayload, UserDetail, UserSensitive
+from portal.application.auth.user_read_service import UserReadService
+from portal.config import settings
+from portal.container import Container
+from portal.domain.auth.member_web_app import MemberWebAppRegistry
+from portal.exceptions.responses import ForbiddenException, InvalidTokenException, UnauthorizedException
+from portal.libs.authorization.auth_config import AuthConfig
+from portal.libs.authorization.permission_checker import PermissionChecker
+from portal.libs.contexts.user_context import UserContext, get_user_context, set_user_context
+from portal.libs.logger import logger
+from portal.providers.jwt_provider import JWTProvider
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """
     Authentication and Authorization Middleware
+
+    This middleware handles:
+    - Token verification (Authentication)
+    - Permission checking (Authorization)
+
+    Both are handled in middleware, no dependency injection needed.
     """
-    async def dispatch(self, request: Request, call_next):
-        # TODO: Implement authentication and authorization logic
+
+    def __init__(self, app):
+        super().__init__(app)
+        self._http_bearer = HTTPBearer(auto_error=False)
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        """
+        Process request: authenticate and authorize
+        :param request: FastAPI Request
+        :param call_next: Next middleware/handler
+        :return: Response
+        """
+        # Get auth_config from route metadata
+        auth_config: Optional[AuthConfig] = self._get_auth_config_from_route(request)
+
+        # If authentication is required, verify token and check permissions
+        logger.debug(f"Auth config: {auth_config}")
+        if auth_config:
+            try:
+                if auth_config.require_auth:
+                    await self._authenticate(request, auth_config)
+
+                # Check permissions if required
+                if auth_config.has_permission_check():
+                    await self._check_permissions(request=request, auth_config=auth_config)
+            except (UnauthorizedException, InvalidTokenException, ForbiddenException) as exc:
+                # Return error response
+                content = defaultdict()
+                headers = None
+                content["detail"] = exc.detail
+                if settings.is_dev:
+                    content["debug_detail"] = exc.debug_detail
+                    content["url"] = str(request.url)
+                if exc.headers:
+                    headers = exc.headers
+                return JSONResponse(content=content, status_code=exc.status_code, headers=headers)
+
         return await call_next(request)
 
+    @staticmethod
+    def _iter_matchable_routes(routes):
+        """
+        Yield API routes, including those nested under FastAPI _IncludedRouter.
+        FastAPI 0.141+ keeps include_router() trees instead of flattening app.routes.
+        """
+        for route in routes:
+            effective_route_contexts = getattr(route, "effective_route_contexts", None)
+            if callable(effective_route_contexts):
+                yield from effective_route_contexts()
+                continue
+            yield route
+
+    @staticmethod
+    def _auth_config_from_candidate(candidate) -> Optional[AuthConfig]:
+        endpoint = getattr(candidate, "endpoint", None)
+        if endpoint and hasattr(endpoint, "__auth_config__"):
+            return getattr(endpoint, "__auth_config__")
+        dependant = getattr(candidate, "dependant", None)
+        if dependant:
+            call = getattr(dependant, "call", None)
+            if call and hasattr(call, "__auth_config__"):
+                return getattr(call, "__auth_config__")
+        return None
+
+    def _get_auth_config_from_route(self, request: Request) -> Optional[AuthConfig]:
+        """
+        Get auth_config from route metadata
+        In FastAPI, routes are matched after middleware execution,
+        so we need to manually match routes by path and method.
+        :param request: FastAPI Request
+        :return: AuthConfig or None
+        """
+        # Try to get from route if already matched (shouldn't happen in middleware, but check anyway)
+        route = request.scope.get("route")
+        if route:
+            auth_config = self._auth_config_from_candidate(route)
+            if auth_config is not None:
+                return auth_config
+
+        # Match route by path and method from app routes
+        # This is necessary because routes are matched after middleware in FastAPI
+        app = request.app
+        # Get the path relative to the app (remove mount prefix if mounted)
+        root_path = request.scope.get("root_path", "")
+        full_path = request.url.path
+        # Remove root_path prefix to get the path relative to the current app
+        if root_path and full_path.startswith(root_path):
+            path = full_path[len(root_path) :]
+        else:
+            path = full_path
+        method = request.method
+
+        for candidate in self._iter_matchable_routes(app.routes):
+            methods = getattr(candidate, "methods", None)
+            if not methods or method not in methods:
+                continue
+
+            path_regex = getattr(candidate, "path_regex", None)
+            if path_regex:
+                if path_regex.match(path):
+                    auth_config = self._auth_config_from_candidate(candidate)
+                    if auth_config is not None:
+                        return auth_config
+                continue
+
+            if getattr(candidate, "path", None) == path:
+                auth_config = self._auth_config_from_candidate(candidate)
+                if auth_config is not None:
+                    return auth_config
+
+        return None
+
+    async def _authenticate(self, request: Request, auth_config: AuthConfig) -> None:
+        """
+        Authenticate request and set UserContext
+        :param request: FastAPI Request
+        :param auth_config: Authentication configuration
+        """
+        # Extract token from Authorization header
+        credentials: Optional[HTTPAuthorizationCredentials] = await self._http_bearer(request)
+
+        if not credentials:
+            raise UnauthorizedException(detail="Authentication required")
+
+        token = credentials.credentials
+
+        # Verify token based on auth type
+        if auth_config.is_admin:
+            await self._verify_admin_token(request=request, token=token)
+        else:
+            await self._verify_user_token(request=request, token=token)
+
+    @inject
+    async def _verify_admin_token(
+        self,
+        request: Request,
+        token: str,
+        jwt_provider: JWTProvider = Provide[Container.jwt_provider],
+        user_read_service: UserReadService = Provide[Container.user_read_service],
+    ) -> None:
+        """
+        Verify admin token and set UserContext
+        :param request:
+        :param token:
+        :param jwt_provider:
+        :param user_read_service:
+        :return:
+        """
+        payload: AccessTokenPayload = jwt_provider.verify_token(token=token, is_admin=True)
+        if not payload:
+            raise InvalidTokenException()
+
+        user: UserSensitive = await user_read_service.get_user_sensitive_by_id(payload.sub)
+        if not user:
+            raise UnauthorizedException()
+        if not user.is_active or not user.is_admin or not user.verified:
+            raise UnauthorizedException()
+
+        user_context = UserContext(
+            user_id=user.id,
+            phone_number=user.phone_number,
+            email=user.email,
+            verified=user.verified,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
+            is_admin=user.is_admin,
+            last_login_at=user.last_login_at,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            gender=user.gender,
+            login_admin=True,
+            token=token,
+            token_payload=payload.model_dump(),
+            username=user.email.split("@")[0],
+        )
+        set_user_context(user_context)
+
+    @inject
+    async def _verify_user_token(
+        self,
+        request: Request,
+        token: str,
+        jwt_provider: JWTProvider = Provide[Container.jwt_provider],
+        user_read_service: UserReadService = Provide[Container.user_read_service],
+        member_web_app_registry: MemberWebAppRegistry = Provide[Container.member_web_app_registry],
+    ) -> None:
+        """
+        Verify user token and set UserContext
+        :param request: FastAPI Request
+        :param token: Access token
+        """
+        payload: AccessTokenPayload = jwt_provider.verify_token(token=token, is_admin=False)
+        if not payload:
+            raise InvalidTokenException()
+        if not payload.azp:
+            raise InvalidTokenException(detail="Missing authorized party")
+
+        request_app_code = resolve_request_app_code(member_web_app_registry, required=True)
+        if payload.azp != request_app_code:
+            raise ForbiddenException(detail="Token is not valid for this web app")
+
+        user: UserDetail = await user_read_service.get_user_detail_by_id(payload.sub)
+        if not user:
+            raise UnauthorizedException()
+        if not user.is_active or not user.verified:
+            raise UnauthorizedException()
+
+        user_context = UserContext(
+            user_id=user.id,
+            phone_number=user.phone_number,
+            email=user.email,
+            verified=user.verified,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
+            is_admin=user.is_admin,
+            last_login_at=user.last_login_at,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            gender=user.gender,
+            login_admin=False,
+            token=token,
+            token_payload=payload.model_dump(),
+            username=user.email.split("@")[0],
+        )
+        set_user_context(user_context)
+
+    @inject
+    async def _check_permissions(
+        self, request: Request, auth_config: AuthConfig, permission_checker: PermissionChecker = Provide[Container.permission_checker]
+    ) -> None:
+        """
+        Check permissions for the request
+        :param request:
+        :param auth_config:
+        :param permission_checker:
+        :return:
+        """
+        # Get user context (should be set by _authenticate)
+        user_context = get_user_context()
+
+        # Check if user is authenticated
+        if not user_context or not user_context.user_id:
+            raise UnauthorizedException(detail="Authentication required")
+
+        # Check superuser bypass
+        if auth_config.allow_superuser and user_context.is_superuser:
+            return
+
+        permission_codes = auth_config.permission_codes
+        if not permission_codes:
+            permission_codes = []
+
+        if auth_config.require_all:
+            # Require all permissions
+            has_permission = await permission_checker.has_all_permissions(permission_codes)
+            if not has_permission:
+                raise ForbiddenException(debug_detail=f"All permissions required: {', '.join(permission_codes)}")
+        else:
+            # Require any permission
+            has_permission = await permission_checker.has_any_permission(permission_codes)
+            if not has_permission:
+                raise ForbiddenException(debug_detail=f"Any permission required: {', '.join(permission_codes)}")

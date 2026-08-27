@@ -1,6 +1,6 @@
-# Rooted Portal API - 文档索引
+# Rooted Core API - 文档索引
 
-欢迎来到 Rooted Portal API 文档中心。
+欢迎来到 Rooted Core API 文档中心。
 
 ## 📚 文档列表
 

@@ -1,0 +1,125 @@
+"""
+File Serializer
+"""
+
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from portal.domain.content.constants import MediaCategory
+from portal.libs.consts.enums import FileStatus, FileUploadSource
+from portal.serializers.mixins import OrderByQueryBaseModel, PaginationBaseResponseModel
+from portal.serializers.mixins.model_mixins import UUIDBaseModel
+
+
+class AdminFileBase(UUIDBaseModel):
+    """File Base Model"""
+
+    original_name: str = Field(..., description="Original file name", serialization_alias="originalName")
+    key: str = Field(..., description="Key")
+    storage: str = Field(..., description="Storage")
+    bucket: str = Field(..., description="Bucket")
+    region: str = Field(..., description="Region")
+    content_type: Optional[str] = Field(None, description="Content type", serialization_alias="contentType")
+    extension: Optional[str] = Field(None, description="File extension")
+    size_bytes: Optional[int] = Field(None, description="Size in bytes", serialization_alias="sizeBytes")
+
+
+class AdminFileDetail(AdminFileBase):
+    """File Base Model"""
+
+    checksum_md5: Optional[str] = Field(None, description="MD5 checksum")
+    checksum_sha256: Optional[str] = Field(None, description="SHA256 checksum")
+    width: Optional[int] = Field(None, description="Width")
+    height: Optional[int] = Field(None, description="Height")
+    duration_seconds: Optional[int] = Field(None, description="Duration in seconds")
+    status: Optional[FileStatus] = Field(None, description="File status")
+    version: Optional[int] = Field(None, description="File version")
+    is_public: Optional[bool] = Field(None, description="Is public")
+    source: Optional[FileUploadSource] = Field(None, description="Source")
+
+
+class AdminFileGridItem(AdminFileBase):
+    """File Grid Item"""
+
+    url: Optional[str] = Field(None, description="URL")
+    created_at: Optional[datetime] = Field(None, description="Created at", serialization_alias="createdAt")
+
+
+class AdminFileQuery(OrderByQueryBaseModel):
+    """FileQuery"""
+
+    keyword: Optional[str] = Field(None, description="Keyword filter")
+    media_category: Optional[MediaCategory] = Field(None, description="Media category filter")
+
+
+class AdminFileCategoryStats(BaseModel):
+    """Category aggregate stats."""
+
+    count: int = Field(..., description="File count")
+    size_bytes: int = Field(..., description="Total size in bytes", serialization_alias="sizeBytes")
+
+
+class AdminFileSummary(BaseModel):
+    """Storage summary for All Media and donut chart."""
+
+    images: AdminFileCategoryStats = Field(..., description="Images stats")
+    files: AdminFileCategoryStats = Field(..., description="Files stats")
+    total: AdminFileCategoryStats = Field(..., description="Total stats")
+
+
+class AdminFilePages(PaginationBaseResponseModel):
+    """File Pages"""
+
+    items: Optional[list[AdminFileGridItem]] = Field(..., description="Items")
+
+
+class AdminFailedUploadFile(BaseModel):
+    """Fail Upload File"""
+
+    filename: str = Field(..., description="File name")
+    error: str = Field(..., description="Error message")
+
+
+class AdminBatchFileUploadResponseModel(BaseModel):
+    """Batch File Upload Response Model"""
+
+    uploaded_files: list[UUIDBaseModel] = Field(..., description="Uploaded files")
+    failed_files: list[AdminFailedUploadFile] = Field(..., description="Failed files")
+
+
+class AdminFileUploadResponseModel(UUIDBaseModel):
+    """File Upload Response Model"""
+
+    duplicate: Optional[bool] = Field(None, description="Is duplicate")
+
+
+class AdminFileBulkAction(BaseModel):
+    """Bulk file action."""
+
+    ids: list[UUID] = Field(..., description="File IDs")
+
+
+class AdminFileAssociationBinding(BaseModel):
+    """Named File association for delete preview."""
+
+    file_id: UUID = Field(..., description="File ID", serialization_alias="fileId")
+    resource_kind: str = Field(..., description="Resource kind token", serialization_alias="resourceKind")
+    resource_id: UUID = Field(..., description="Bound resource ID", serialization_alias="resourceId")
+    display_name: str = Field(..., description="Room name or code", serialization_alias="displayName")
+    is_deleted: bool = Field(..., description="Whether the bound Room is soft-deleted", serialization_alias="isDeleted")
+
+
+class AdminFileAssociationPreview(BaseModel):
+    """Named File associations for selected files."""
+
+    items: list[AdminFileAssociationBinding] = Field(..., description="Bindings")
+
+
+class AdminBulkActionResponseModel(BaseModel):
+    """Bulk Action Response Model"""
+
+    success_count: int = Field(..., description="Count of items affected", serialization_alias="successCount")
+    failed_items: Optional[list[AdminFileBase]] = Field(None, description="Failed items", serialization_alias="failedItems")

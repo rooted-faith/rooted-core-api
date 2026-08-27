@@ -2,19 +2,19 @@
 testpaths = ["portal", "tests"]
 
 [project]
-name = "rooted-portal-api"
+name = "rooted-core-api"
 version = "0.1.0"
-description = ""
+description = "Rooted Core API — devotional app backend with admin platform services"
 authors = [{ name = "Jay Hsia", email = "jayhsia1997@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.14"
 dependencies = [
     # base
     "dependency-injector",
     "fastapi",
-    "fastapi-limiter==0.1.6",
-    "gunicorn",
-    "uvicorn (==0.35.0)",
+    "fastapi-limiter",
+    "gunicorn>=25,<26",
+    "uvicorn",
     "pydantic",
     "pydantic-settings",
     "python-dotenv",
@@ -22,99 +22,50 @@ dependencies = [
     "asyncpg",
     "redis",
     "sqlalchemy",
-    "psycopg2-binary==2.9.10",
+    "psycopg2-binary",
     # security
     "pyjwt",
+    "azure-storage-blob",
     # utils
     "boto3",
-    "cryptography",
+    "cryptography>=47,<48",
     "email-validator",
     "httpx",
     "ujson",
     "pytz",
-    "pandas (==2.3.3)",
-    "numpy (==2.3.4)",
+    "pandas",
+    "numpy",
     "phonenumbers",
     "pyotp",
-    "python-dateutil==2.9.0.post0",
-    "python-multipart==0.0.20",
+    "python-dateutil",
+    "python-multipart",
     "pyyaml",
     "sentry-sdk[fastapi]",
-    "pillow (>=11.3.0,<12.0.0)",
-    "aiosmtplib (>=5.0.0,<6.0.0)",
-    "jinja2 (>=3.1.6,<4.0.0)",
+    "pillow",
+    "aiosmtplib",
+    "jinja2",
 ]
 
-[tool.poetry]
-package-mode = false
+[dependency-groups]
+dev = ["alembic", "pytest", "pytest-asyncio", "pytest-mock", "click", "ruff"]
 
-[tool.poetry.group.dev.dependencies]
-alembic = "*"
-pytest = "*"
-pytest-asyncio = "*"
-pytest-mock = "*"
-click = "*"
-ruff = "*"
+[tool.uv]
+package = false
+required-version = ">=0.12.4,<0.13"
 
 [tool.ruff]
-# 目標 Python 版本
-target-version = "py313"
-# 行長度（與 .editorconfig 保持一致）
+target-version = "py314"
 line-length = 160
-exclude = [
-    ".git",
-    "__pycache__",
-    ".venv",
-    "venv",
-    "build",
-    "dist",
-    "*.egg-info",
-    "alembic",
-    "bible_data",
-]
+extend-exclude = ["alembic/versions", "bible_data"]
 
 [tool.ruff.lint]
-# 啟用的規則集合
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ARG", # flake8-unused-arguments
-    "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
-    "PIE", # flake8-pie
-    "PT",  # flake8-pytest-style
-    "RET", # flake8-return
-    "RUF", # Ruff-specific rules
-]
-ignore = [
-    "E501",  # line too long (handled by formatter)
-    "B008",  # do not perform function calls in argument defaults
-    "ARG001", # unused function argument (common in FastAPI route handlers)
-    "ARG002", # unused method argument
-    "ARG003", # unused class argument
-    "RET503", # return value ignored
-    "RUF100", # unused blanket `noqa` comment
-]
-per-file-ignores = { "__init__.py" = ["F401"], "tests/**/*.py" = ["ARG"] }
+select = ["I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["portal"]
+split-on-trailing-comma = false
 
 [tool.ruff.format]
-# 使用雙引號（符合 Python 慣例）
-quote-style = "double"
-# 縮排使用空格（與 .editorconfig 保持一致）
-indent-style = "space"
-# 保留尾隨逗號（符合 .editorconfig 的設定）
-skip-magic-trailing-comma = false
-# 行尾符號使用 LF（與 .editorconfig 的 end_of_line = lf 保持一致）
+quote-style = "preserve"
+skip-magic-trailing-comma = true
 line-ending = "lf"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

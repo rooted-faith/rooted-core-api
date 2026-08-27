@@ -1,6 +1,7 @@
 """
 Audit information
 """
+
 import pytz
 import sqlalchemy as sa
 from sqlalchemy import Boolean, Column, DateTime, Float, String, text
@@ -10,7 +11,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from .context import get_current_id, get_current_username
 
 
-class SortableMixin:
+class SortableMixin(object):
     """SortableMixin"""
 
     @declared_attr
@@ -20,13 +21,11 @@ class SortableMixin:
         :return:
         """
         return Column(
-            Float,
-            server_default=text("extract(epoch from now())"),
-            comment="Display sort, small to large, positive sort, default value current timestamp"
+            Float, server_default=text("extract(epoch from now())"), comment="Display sort, small to large, positive sort, default value current timestamp"
         )
 
 
-class AuditCreatedAtMixin:
+class AuditCreatedAtMixin(object):
     """AuditCreatedAtMixin"""
 
     @declared_attr
@@ -35,15 +34,10 @@ class AuditCreatedAtMixin:
 
         :return:
         """
-        return Column(
-            DateTime(timezone=True),
-            server_default=sa.func.now(tz=pytz.UTC),
-            comment="Create Date",
-            nullable=False
-        )
+        return Column(DateTime(timezone=True), server_default=sa.func.now(tz=pytz.UTC), comment="Create Date", nullable=False)
 
 
-class AuditCreatedByMixin:
+class AuditCreatedByMixin(object):
     """AuditCreatedByMixin"""
 
     @declared_attr
@@ -52,12 +46,7 @@ class AuditCreatedByMixin:
 
         :return:
         """
-        return Column(
-            String(64),
-            default=get_current_username,
-            comment="Create User Name",
-            nullable=False
-        )
+        return Column(String(64), default=get_current_username, comment="Create User Name", nullable=False)
 
 
 class AuditCreatedMixin(AuditCreatedAtMixin, AuditCreatedByMixin):
@@ -72,7 +61,7 @@ class AuditCreatedMixin(AuditCreatedAtMixin, AuditCreatedByMixin):
         return Column(UUID, default=get_current_id, comment="Create User ID")
 
 
-class AuditUpdatedAtMixin:
+class AuditUpdatedAtMixin(object):
     """AuditUpdatedAtMixin"""
 
     @declared_attr
@@ -87,11 +76,11 @@ class AuditUpdatedAtMixin:
             server_onupdate=sa.func.now(tz=pytz.UTC),
             onupdate=sa.func.now(tz=pytz.UTC),
             comment="Update Date",
-            nullable=False
+            nullable=False,
         )
 
 
-class AuditUpdatedByMixin:
+class AuditUpdatedByMixin(object):
     """AuditUpdatedByMixin"""
 
     @declared_attr
@@ -100,12 +89,7 @@ class AuditUpdatedByMixin:
 
         :return:
         """
-        return Column(
-            String(64),
-            default=get_current_username,
-            comment="Update User Name",
-            nullable=False
-        )
+        return Column(String(64), default=get_current_username, comment="Update User Name", nullable=False)
 
 
 class AuditUpdatedMixin(AuditUpdatedAtMixin, AuditUpdatedByMixin):
@@ -113,19 +97,16 @@ class AuditUpdatedMixin(AuditUpdatedAtMixin, AuditUpdatedByMixin):
 
     @declared_attr
     def updated_by_id(self):
-        return Column(
-            UUID,
-            default=get_current_id,
-            onupdate=get_current_id,
-            comment="Update User ID"
-        )
+        return Column(UUID, default=get_current_id, onupdate=get_current_id, comment="Update User ID")
 
 
 class AuditMixin(AuditCreatedMixin, AuditUpdatedMixin):
     """AuditMixin"""
 
+    pass
 
-class DeletedMixin:
+
+class DeletedMixin(object):
     """DeletedMixin"""
 
     @declared_attr
@@ -142,15 +123,10 @@ class DeletedMixin:
 
         :return:
         """
-        return Column(
-            Boolean,
-            server_default=text("false"),
-            comment="Is Deleted(Logical Delete)",
-            nullable=False
-        )
+        return Column(Boolean, server_default=text("false"), comment="Is Deleted(Logical Delete)", nullable=False)
 
 
-class DescriptionMixin:
+class DescriptionMixin(object):
     """DescriptionMixin"""
 
     @declared_attr
@@ -162,7 +138,7 @@ class DescriptionMixin:
         return Column(sa.Text, comment="Description")
 
 
-class RemarkMixin:
+class RemarkMixin(object):
     """RemarkMixin"""
 
     @declared_attr
@@ -172,10 +148,3 @@ class RemarkMixin:
         :return:
         """
         return Column(String(256), comment="Remark")
-
-
-class BaseMixin(AuditMixin, DeletedMixin, DescriptionMixin, RemarkMixin):
-    """
-    BaseMixin
-    Contains audit information, logical deletion, description, and remark
-    """

@@ -1,6 +1,6 @@
 # Admin Sub Application
 
-This is the Admin sub-application for Rooted Portal API, mounted at `/admin` path.
+This is the Admin sub-application for Rooted Core API, mounted at `/admin` path.
 
 ## Structure
 

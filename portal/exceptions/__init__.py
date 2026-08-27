@@ -1,4 +1,3 @@
 """
-Exceptions package
+Top-level package for exceptions.
 """
-

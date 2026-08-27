@@ -51,7 +51,7 @@ class Assert:
             raise ParamError(message)
 
     @staticmethod
-    def is_not_list(value, message: str | None = None, nullable=False):
+    def is_not_list(value, message: str = None, nullable=False):
         if nullable and value is None:
             return
         if not isinstance(value, list):
@@ -103,7 +103,7 @@ class Assert:
     def is_not_dict_vals(item: dict, key: str, message: str):
         if not isinstance(item, dict):
             raise ParamError(message)
-        value = item.get(key)
-        if value is None or value == "":
+        value = item.get(key, None)
+        if value is None or value == '':
             raise ParamError(message)
         return value

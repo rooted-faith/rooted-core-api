@@ -20,7 +20,7 @@ jobs:
     environment:
       name: image
       # package url
-      url: "https://github.com/${{ github.repository }}/pkgs/container/rooted-portal-api"
+      url: "https://github.com/${{ github.repository }}/pkgs/container/rooted-core-api"
     steps:
       - name: Checkout
         uses: actions/checkout@v3

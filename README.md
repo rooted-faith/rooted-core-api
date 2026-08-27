@@ -1,6 +1,6 @@
-# Rooted Portal API
+# Rooted Core API
 
-A modern RESTful API service for Rooted Portal backend, built with FastAPI.
+A modern RESTful API service for the Rooted（扎根） devotional app backend, built with FastAPI and Clean Architecture.
 
 ## 🛠️ Tech Stack
 
@@ -12,13 +12,13 @@ A modern RESTful API service for Rooted Portal backend, built with FastAPI.
 - **File Storage**: AWS S3
 - **Monitoring**: Sentry
 - **Containerization**: Docker
-- **Package Manager**: Poetry
+- **Package Manager**: uv
 - **Database Migration**: Alembic
-- **Python Version**: 3.13+
+- **Python Version**: 3.14+
 
 ## 📋 Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - PostgreSQL 12+
 - Redis 6+
 - Docker (optional)
@@ -26,14 +26,14 @@ A modern RESTful API service for Rooted Portal backend, built with FastAPI.
 
 ## 🚀 Quick Start
 
-### 1. Install Poetry
+### 1. Install uv
 
-[Poetry Installation Guide](https://python-poetry.org/docs/#system-requirements)
+[uv Installation Guide](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### 2. Install Dependencies
 
 ```bash
-poetry install
+uv sync
 ```
 
 ### 3. Environment Setup
@@ -52,10 +52,10 @@ Edit the `.env` file with your configuration values.
 
 ```bash
 # Create a new migration file
-poetry run alembic revision --autogenerate -m "description"
+uv run alembic revision --autogenerate -m "description"
 
 # Run migrations
-poetry run alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### 5. Run the Application
@@ -63,7 +63,7 @@ poetry run alembic upgrade head
 #### Development Environment
 
 ```bash
-poetry run uvicorn portal:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn portal:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The application runs on `http://localhost:8000` by default.
@@ -79,7 +79,7 @@ Once the application is running, you can access:
 ## 📁 Project Structure
 
 ```
-rooted-portal-api/
+rooted-core-api/
 ├── portal/                    # Main application
 │   ├── __init__.py
 │   ├── __main__.py
@@ -100,7 +100,7 @@ rooted-portal-api/
 ├── alembic/                # Database migrations
 ├── tests/                  # Test suite
 ├── Dockerfile             # Docker configuration
-├── pyproject.toml         # Poetry configuration
+├── pyproject.toml         # Project configuration (uv)
 ├── alembic.ini            # Alembic configuration
 └── README.md              # This file
 ```
