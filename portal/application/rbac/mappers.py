@@ -108,7 +108,6 @@ def admin_user_pages_query_to_command(model: AdminUserQuery) -> AdminUserPagesQu
         is_active=model.is_active,
         is_superuser=model.is_superuser,
         is_admin=model.is_admin,
-        is_ministry=model.is_ministry,
         gender=model.gender,
     )
 
@@ -199,7 +198,6 @@ def create_admin_user_to_command(model: AdminUserCreate) -> CreateAdminUserComma
         is_admin=model.is_admin,
         display_name=model.display_name,
         gender=model.gender,
-        is_ministry=model.is_ministry,
         remark=model.remark,
         password=model.password,
         password_confirm=model.password_confirm,
@@ -216,7 +214,6 @@ def update_admin_user_to_command(model: AdminUserUpdate) -> UpdateAdminUserComma
         is_admin=model.is_admin,
         display_name=model.display_name,
         gender=model.gender,
-        is_ministry=model.is_ministry,
         remark=model.remark,
     )
 

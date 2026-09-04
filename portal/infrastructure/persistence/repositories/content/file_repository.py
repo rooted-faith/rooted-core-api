@@ -17,10 +17,10 @@ from portal.application.content.results import (
     FileSummaryResult,
     SignedUrlFileByResourceResult,
 )
-from portal.domain.content.constants import FILE_RESOURCE_KIND_FACILITY_ROOM, FileStatus, MediaCategory
+from portal.domain.content.constants import FileStatus, MediaCategory
 from portal.libs.database import Session
 from portal.libs.database.execute_result import affected_rows
-from portal.models import ContentFile, ContentFileAssociation, FacilityRoom, FacilityRoomTranslation
+from portal.models import ContentFile, ContentFileAssociation
 
 
 class FileRepository:
@@ -212,29 +212,16 @@ class FileRepository:
     async def fetch_association_preview_by_file_ids(self, file_ids: list[UUID], locale_id: Optional[UUID]) -> list[FileAssociationBindingResult]:
         if not file_ids:
             return []
-        room_name = FacilityRoom.code
-        if locale_id:
-            room_name = sa.func.coalesce(
-                sa.select(FacilityRoomTranslation.name)
-                .where(FacilityRoomTranslation.room_id == FacilityRoom.id, FacilityRoomTranslation.locale_id == locale_id)
-                .limit(1)
-                .scalar_subquery(),
-                FacilityRoom.code,
-            )
-        display_name = sa.func.coalesce(room_name, sa.cast(ContentFileAssociation.resource_id, sa.String))
+        display_name = sa.cast(ContentFileAssociation.resource_id, sa.String)
         items = await (
             self._session.select(
                 ContentFileAssociation.file_id,
                 ContentFileAssociation.resource_name.label("resource_kind"),
                 ContentFileAssociation.resource_id,
                 display_name.label("display_name"),
-                sa.func.coalesce(FacilityRoom.is_deleted, False).label("is_deleted"),
+                sa.literal(False).label("is_deleted"),
             )
             .select_from(ContentFileAssociation)
-            .outerjoin(
-                FacilityRoom,
-                sa.and_(FacilityRoom.id == ContentFileAssociation.resource_id, ContentFileAssociation.resource_name == FILE_RESOURCE_KIND_FACILITY_ROOM),
-            )
             .where(ContentFileAssociation.file_id.in_(file_ids))
             .order_by(ContentFileAssociation.file_id, ContentFileAssociation.sequence.asc())
             .fetch(as_model=FileAssociationBindingResult)

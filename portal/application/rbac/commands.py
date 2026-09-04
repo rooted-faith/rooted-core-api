@@ -133,7 +133,6 @@ class AdminUserPagesQueryCommand(PagesQueryCommand):
     is_active: Optional[bool] = Field(default=None)
     is_superuser: Optional[bool] = Field(default=None)
     is_admin: Optional[bool] = Field(default=None)
-    is_ministry: Optional[bool] = Field(default=None)
     gender: Optional[Gender] = Field(default=None)
 
 
@@ -148,7 +147,6 @@ class CreateAdminUserCommand(BaseModel):
     is_admin: bool = Field(default=False)
     display_name: Optional[str] = Field(default=None)
     gender: Optional[Gender] = Field(default=Gender.UNKNOWN)
-    is_ministry: bool = Field(default=False)
     remark: Optional[str] = Field(default=None)
     password: str = Field(...)
     password_confirm: str = Field(...)
@@ -165,7 +163,6 @@ class UpdateAdminUserCommand(BaseModel):
     is_admin: bool = Field(default=False)
     display_name: Optional[str] = Field(default=None)
     gender: Optional[Gender] = Field(default=Gender.UNKNOWN)
-    is_ministry: bool = Field(default=False)
     remark: Optional[str] = Field(default=None)
 
 

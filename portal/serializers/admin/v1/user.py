@@ -20,7 +20,6 @@ class AdminUserQuery(GenericQueryBaseModel):
     is_active: Optional[bool] = Field(None, description="Is the user active")
     is_superuser: Optional[bool] = Field(None, description="Is the user a superuser")
     is_admin: Optional[bool] = Field(None, description="Can the user access the admin panel")
-    is_ministry: Optional[bool] = Field(None, description="Is the user a ministry")
     gender: Optional[Gender] = Field(None, description="User's gender")
 
 
@@ -67,7 +66,6 @@ class AdminUserCreate(BaseModel):
     is_admin: bool = Field(False, description="Can the user access the admin panel")
     display_name: Optional[str] = Field(None, description="User's display name")
     gender: Optional[Gender] = Field(Gender.UNKNOWN, description="User's gender")
-    is_ministry: bool = Field(False, description="Is the user a ministry")
     remark: Optional[str] = Field(None, description="Remark")
     password: str = Field(..., min_length=8, description="User's password")
     password_confirm: str = Field(..., min_length=8, description="User's password confirmation")

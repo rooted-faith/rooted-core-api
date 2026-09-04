@@ -20,42 +20,10 @@ from .auth import (
     AuthVerb,
     AuthVerbTranslation,
 )
+from .bible import BibleBook, BibleVerse, BibleVersion
 from .content import ContentFile, ContentFileAssociation, ContentLegalDocument, ContentLegalDocumentTranslation
-from .facility import (
-    FacilityBooking,
-    FacilityBookingOverrideLog,
-    FacilityBookingRoom,
-    FacilityBookingSlot,
-    FacilityBookingSurcharge,
-    FacilityRentalDiscountRule,
-    FacilityRentalPolicySetting,
-    FacilityRentalRate,
-    FacilityRentalRateTemplate,
-    FacilityRentalSurcharge,
-    FacilityRoom,
-    FacilityRoomBlackout,
-    FacilityRoomSlotTemplate,
-    FacilityRoomTranslation,
-)
-from .member import MemberPerson
-from .org import (
-    OrgMinistry,
-    OrgMinistryApproval,
-    OrgMinistryMember,
-    OrgMinistrySchedule,
-    OrgMinistryTargetAudience,
-    OrgMinistryTranslation,
-    OrgMinistryType,
-    OrgMinistryTypeTranslation,
-    OrgPosition,
-    OrgPositionAssignment,
-    OrgPositionTranslation,
-    OrgTargetAudience,
-    OrgTargetAudienceTranslation,
-)
 from .system_locale import SystemLocale
 from .system_setting import SystemSetting
-from .bible import BibleBook, BibleVerse, BibleVersion
 
 __all__ = [
     # audit
@@ -82,42 +50,11 @@ __all__ = [
     # auth
     "AuthDevice",
     "AuthRefreshToken",
-    # facility
-    "FacilityRoom",
-    "FacilityRoomTranslation",
-    "FacilityRoomSlotTemplate",
-    "FacilityRoomBlackout",
-    "FacilityRentalRateTemplate",
-    "FacilityRentalRate",
-    "FacilityRentalDiscountRule",
-    "FacilityRentalSurcharge",
-    "FacilityRentalPolicySetting",
-    "FacilityBooking",
-    "FacilityBookingRoom",
-    "FacilityBookingSlot",
-    "FacilityBookingSurcharge",
-    "FacilityBookingOverrideLog",
-    # member
-    "MemberPerson",
     # content
     "ContentFile",
     "ContentFileAssociation",
     "ContentLegalDocument",
     "ContentLegalDocumentTranslation",
-    # org
-    "OrgPosition",
-    "OrgPositionTranslation",
-    "OrgPositionAssignment",
-    "OrgMinistryType",
-    "OrgMinistryTypeTranslation",
-    "OrgTargetAudience",
-    "OrgTargetAudienceTranslation",
-    "OrgMinistryTargetAudience",
-    "OrgMinistry",
-    "OrgMinistryTranslation",
-    "OrgMinistryMember",
-    "OrgMinistrySchedule",
-    "OrgMinistryApproval",
     # bible
     "BibleBook",
     "BibleVerse",
