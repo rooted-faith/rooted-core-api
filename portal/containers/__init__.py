@@ -14,15 +14,7 @@ from portal.events.bus import EventBus
 class RootContainer(containers.DeclarativeContainer):
     """Application composition root."""
 
-    wiring_config = containers.WiringConfiguration(
-        modules=[],
-        packages=[
-            "portal.application",
-            "portal.routers",
-            "portal.routers.admin",
-            "portal.middlewares",
-        ],
-    )
+    wiring_config = containers.WiringConfiguration(modules=[], packages=["portal.application", "portal.routers", "portal.routers.admin", "portal.middlewares"])
 
     core = providers.Container(CoreContainer)
     admin: AdminContainer = providers.Container(AdminContainer, core=core)
@@ -59,6 +51,7 @@ class RootContainer(containers.DeclarativeContainer):
     legal_document_service = admin.content.legal_document_service
 
     bible_service = app.bible_service
+    end_user_provisioning_service = app.end_user_provisioning_service
 
     event_bus = events.event_bus
 

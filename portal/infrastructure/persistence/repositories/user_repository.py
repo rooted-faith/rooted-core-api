@@ -307,6 +307,15 @@ class UserRepository:
             .fetchrow(as_model=AdminUserDetailResult)
         )
 
+    async def create_credential(self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False) -> UUID:
+        """Insert auth.user credential only — no AuthUserProfile and no app.user."""
+        await (
+            self._session.insert(AuthUser)
+            .values(id=auth_user_id, email=email, password_hash=password_hash, verified=False, is_active=True, is_admin=is_admin, is_superuser=is_superuser)
+            .execute()
+        )
+        return auth_user_id
+
     async def create_user(self, user_id: UUID, model: CreateAdminUserCommand, password_hash: str) -> CreateIdResult:
         try:
             await (
