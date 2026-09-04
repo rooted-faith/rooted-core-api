@@ -24,8 +24,8 @@ The guided unit for a calendar day: passage, reflection prompts, prayer — the 
 _Avoid_: generic “content item”, feed post
 
 **Series**:
-A ordered collection of lessons (e.g. a 7-day plan). Users enroll via **Plan enrollment**.
-_Avoid_: playlist (too casual)
+An ordered collection of lessons (e.g. a 7-day plan). The platform publishes the catalog; users enroll via **Plan enrollment**.
+_Avoid_: playlist (too casual); treating the client bundle as the only authority
 
 **Plan enrollment**:
 A user’s commitment to walk a series from a start date, with optional pause — tracks progress without public ranking.
@@ -52,7 +52,8 @@ Addressable Scripture text (book, chapter, verse range) for a version — served
 _Avoid_: duplicating passage blobs inside every lesson row when normalized design exists
 
 **Bookmark**:
-User-saved passage reference and optional snippet for personal reading — not a social signal.
+User-saved passage reference and optional snippet for personal reading. Syncs with the account in v1 — still not a social signal.
+_Avoid_: treating bookmarks as group-visible
 
 ---
 
@@ -87,7 +88,7 @@ _Avoid_: skipping covenant for “faster onboarding” on real groups
 
 **Membership**:
 Links user to group with role `member` or `shepherd` (組長). Shepherd sees pastoral **walk alongside** signals — not competitive rankings.
-_Avoid_: admin (use for operator console only)
+_Avoid_: admin (that term is for **Admin User** on the admin console)
 
 **Prayer request**:
 Group-visible prayer need on the prayer wall. Others mark **prayed** (代禱) — not a comment thread.
@@ -103,15 +104,25 @@ _Avoid_: auto-posting journal or notes
 **Demo group**:
 Sample fellowship for preview — must be labeled or isolated from real church groups in production (PRD §11.4).
 
+**Weekly invite**:
+A per-group, per-End-user flag that the member joined that group’s weekly invite rhythm — synced with the account, not a chat message.
+_Avoid_: treating it as a Prayer request or Share
+
 ---
 
 ### Auth & platform
 
 **End user**:
-Someone using the Rooted app — may be anonymous for read-only devotion/bible per spec, or authenticated for sync and fellowship.
+The product identity of someone using the Rooted app — anonymous for read-only devotion/bible where allowed, or authenticated for sync and fellowship. Linked to an auth credential row; created only when the person uses the app as a member (a pure **Admin User** need not have one). Presentation fields such as display name live under **Preferences**.
+_Avoid_: Member (as the identity noun — that word belongs to **Membership** roles), conflating with **Admin User**
 
-**Operator**:
-Staff using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from **shepherd** (group role).
+**Preferences**:
+End-user settings and presentation defaults (display name, locale, theme, font scale, bible version, stage, reminder) — distinct from auth credentials, from **Admin User** profile fields, and from the End user identity key.
+_Avoid_: Admin User profile fields, burying prefs inside fellowship or journal rows
+
+**Admin User**:
+Staff account using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from **shepherd** (group role) and from **End user**. May share the same auth credential as an End user when one person holds both capacities.
+_Avoid_: Operator, treating Membership role as admin
 
 **Report**:
 User flag on fellowship content (prayer, share, etc.) with reason code — feeds moderation queue in v1.

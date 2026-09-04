@@ -13,7 +13,7 @@ This document helps AI agents quickly understand the **Rooted Core API** codebas
 | **Database**        | PostgreSQL + SQLAlchemy (asyncpg)                                                                          |
 | **Cache**           | Redis (sessions, rate limiting, auth blacklist when enabled)                                               |
 | **Auth (app)**      | JWT — email/password and optional magic link (see ADR 0003); **no** Microsoft Entra / OIDC in scope        |
-| **Auth (admin)**    | JWT + RBAC for operator console at `/admin`                                                                |
+| **Auth (admin)**    | JWT + RBAC for admin console at `/admin`                                                                   |
 | **DI**              | `dependency-injector`                                                                                      |
 | **Package manager** | uv (`uv run …`)                                                                                            |
 | **Python**          | 3.14+ (see `pyproject.toml`)                                                                               |
@@ -151,7 +151,7 @@ Rooted v1 domains (from PRD and `rooted-docs`). Use these folder names when addi
 | **sync**   | Client ↔ server sync for v1                         |
 | **reports**| User reports + moderation queue                     |
 | **rbac**   | Admin roles/permissions/resources                   |
-| **audit**  | Operator audit trail where required                 |
+| **audit**  | Admin User audit trail where required               |
 
 ### Privacy invariant (journal)
 

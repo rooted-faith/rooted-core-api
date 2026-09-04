@@ -13,7 +13,7 @@ Product spec also describes **magic link** email login for end users. NewLife ad
 ## Decision
 
 1. **Primary credential model (shared infrastructure):** email + **password** with JWT access and refresh tokens, implemented using the same provider patterns as NewLife (password hash, `JWTProvider`, refresh rotation/blacklist as enabled).
-2. **Admin operators** authenticate via admin login endpoints under `/admin/api/v1/auth` with RBAC — password-first; no Microsoft/OIDC login for Rooted admin in v1.
+2. **Admin Users** authenticate via admin login endpoints under `/admin/api/v1/auth` with RBAC — password-first; no Microsoft/OIDC login for Rooted admin in v1.
 3. **App end users** expose password registration/login **and** magic-link endpoints per `rooted-docs/docs/backend/api-specification.md`; magic link is an additional factorless channel, not a separate auth stack.
 4. **Explicitly out of scope:** Microsoft Entra ID / Azure AD token exchange, generic OIDC social login, and NewLife-style `MicrosoftAuthService`.
 5. **Token policy:** follow product ranges (access ~15–60 minutes, refresh ~7–30 days) via configuration; clients send `Authorization: Bearer`.
