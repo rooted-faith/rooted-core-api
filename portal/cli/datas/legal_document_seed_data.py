@@ -10,8 +10,6 @@ from portal.domain.content.constants import LegalDocumentKind, ProductCode
 _SEED_EFFECTIVE_DATE = date(2026, 1, 1)
 
 seed_legal_documents: list[dict] = [
-    {"product": ProductCode.FACILITY_BOOKING.value, "kind": LegalDocumentKind.TERMS_OF_SERVICE.value, "effective_date": _SEED_EFFECTIVE_DATE},
-    {"product": ProductCode.FACILITY_BOOKING.value, "kind": LegalDocumentKind.PRIVACY_POLICY.value, "effective_date": _SEED_EFFECTIVE_DATE},
     {"product": ProductCode.PORTAL.value, "kind": LegalDocumentKind.TERMS_OF_SERVICE.value, "effective_date": _SEED_EFFECTIVE_DATE},
     {"product": ProductCode.PORTAL.value, "kind": LegalDocumentKind.PRIVACY_POLICY.value, "effective_date": _SEED_EFFECTIVE_DATE},
 ]

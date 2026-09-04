@@ -6,7 +6,6 @@ from enum import IntEnum, StrEnum
 
 CONTENT_FILE_TABLE = "file"
 CONTENT_LEGAL_DOCUMENT_TABLE = "legal_document"
-FILE_RESOURCE_KIND_FACILITY_ROOM = "facility.room"
 
 
 class MediaCategory(StrEnum):
@@ -37,7 +36,6 @@ class FileUploadSource(IntEnum):
 class ProductCode(StrEnum):
     """Built-in Product codes that own Legal Documents."""
 
-    FACILITY_BOOKING = "facility-booking"
     PORTAL = "portal"
 
 

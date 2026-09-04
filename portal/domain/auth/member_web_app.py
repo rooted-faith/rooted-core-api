@@ -37,7 +37,7 @@ def parse_member_web_apps(raw: Optional[str]) -> list[MemberWebApp]:
     Parse MEMBER_WEB_APPS env.
 
     Format (comma-separated apps; pipe-separated code|origin|origin...):
-      facility-booking|http://localhost:5174|https://booking.example.com,
+      rooted-app|http://localhost:5174|https://app.example.com,
       another-app|http://localhost:5180
 
     :param raw:

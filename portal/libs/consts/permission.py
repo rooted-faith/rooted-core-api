@@ -23,18 +23,6 @@ class Resource(Enum):
     SYSTEM_USER = "system:user"
     SYSTEM_LOG = "system:log"
     SYSTEM_SETTING = "system:setting"
-    FACILITY_ROOM = "facility:room"
-    FACILITY_ROOM_SLOT_TEMPLATE = "facility:room_slot_template"
-    FACILITY_ROOM_BLACKOUT = "facility:room_blackout"
-    FACILITY_RENTAL_RATE = "facility:rental_rate"
-    FACILITY_RENTAL_RATE_TEMPLATE = "facility:rental_rate_template"
-    FACILITY_BOOKING = "facility:booking"
-    FACILITY_BOOKING_OVERRIDE_LOG = "facility:booking_override_log"
-    MINISTRY_MINISTRY = "ministry:ministry"
-    MINISTRY_MEMBER = "ministry:member"
-    MINISTRY_APPROVAL = "ministry:approval"
-    ORG_POSITION = "org:position"
-    MEMBER_PERSON = "member:person"
     CONTENT_FILE = "content:file"
     CONTENT_LEGAL_DOCUMENT = "content:legal_document"
 
@@ -75,17 +63,5 @@ class Permission:
     SYSTEM_USER = PermissionCode(Resource.SYSTEM_USER)
     SYSTEM_LOG = PermissionCode(Resource.SYSTEM_LOG)
     SYSTEM_SETTING = PermissionCode(Resource.SYSTEM_SETTING)
-    FACILITY_ROOM = PermissionCode(Resource.FACILITY_ROOM)
-    FACILITY_ROOM_SLOT_TEMPLATE = PermissionCode(Resource.FACILITY_ROOM_SLOT_TEMPLATE)
-    FACILITY_ROOM_BLACKOUT = PermissionCode(Resource.FACILITY_ROOM_BLACKOUT)
-    FACILITY_RENTAL_RATE = PermissionCode(Resource.FACILITY_RENTAL_RATE)
-    FACILITY_RENTAL_RATE_TEMPLATE = PermissionCode(Resource.FACILITY_RENTAL_RATE_TEMPLATE)
-    FACILITY_BOOKING = PermissionCode(Resource.FACILITY_BOOKING)
-    FACILITY_BOOKING_OVERRIDE_LOG = PermissionCode(Resource.FACILITY_BOOKING_OVERRIDE_LOG)
-    MINISTRY_MINISTRY = PermissionCode(Resource.MINISTRY_MINISTRY)
-    MINISTRY_MEMBER = PermissionCode(Resource.MINISTRY_MEMBER)
-    MINISTRY_APPROVAL = PermissionCode(Resource.MINISTRY_APPROVAL)
-    ORG_POSITION = PermissionCode(Resource.ORG_POSITION)
-    MEMBER_PERSON = PermissionCode(Resource.MEMBER_PERSON)
     CONTENT_FILE = PermissionCode(Resource.CONTENT_FILE)
     CONTENT_LEGAL_DOCUMENT = PermissionCode(Resource.CONTENT_LEGAL_DOCUMENT)
