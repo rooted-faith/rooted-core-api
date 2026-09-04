@@ -27,8 +27,19 @@ class StubUserRepository:
     def __init__(self):
         self.created: list[dict] = []
 
-    async def create_credential(self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False) -> UUID:
-        self.created.append({"auth_user_id": auth_user_id, "email": email, "password_hash": password_hash, "is_admin": is_admin, "is_superuser": is_superuser})
+    async def create_credential(
+        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+    ) -> UUID:
+        self.created.append(
+            {
+                "auth_user_id": auth_user_id,
+                "email": email,
+                "password_hash": password_hash,
+                "is_admin": is_admin,
+                "is_superuser": is_superuser,
+                "verified": verified,
+            }
+        )
         return auth_user_id
 
 
@@ -86,6 +97,7 @@ async def test_register_end_user_creates_credential_end_user_and_preferences():
     assert user_repo.created[0]["email"] == "member@example.com"
     assert user_repo.created[0]["password_hash"] == "hashed:Secure1!"
     assert user_repo.created[0]["is_admin"] is False
+    assert user_repo.created[0]["verified"] is True
     assert result.auth_user_id == user_repo.created[0]["auth_user_id"]
 
     assert len(end_user_repo.created) == 1
@@ -115,6 +127,7 @@ async def test_admin_only_provision_skips_end_user_and_preferences():
 
     assert len(user_repo.created) == 1
     assert user_repo.created[0]["is_admin"] is True
+    assert user_repo.created[0]["verified"] is False
     assert result.auth_user_id == user_repo.created[0]["auth_user_id"]
     assert result.end_user_id is None
     assert end_user_repo.created == []

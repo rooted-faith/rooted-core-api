@@ -59,6 +59,8 @@ class UserRepositoryPort(Protocol):
 
     async def update_user_active_flag(self, user_id: UUID, is_active: bool) -> None: ...
 
-    async def create_credential(self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False) -> UUID:
+    async def create_credential(
+        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+    ) -> UUID:
         """Insert auth.user only (no AuthUserProfile, no app.user)."""
         ...

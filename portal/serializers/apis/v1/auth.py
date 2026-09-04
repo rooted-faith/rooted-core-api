@@ -12,8 +12,23 @@ from portal.domain.common.mixins import UUIDModel
 from portal.serializers.mixins import LoginResponse, TokenResponse
 
 
+class MemberRegisterRequest(BaseModel):
+    """End user password registration body."""
+
+    email: str = Field(..., description="End user email")
+    password: str = Field(..., description="End user password")
+    display_name: str = Field(..., description="Display name for Preferences")
+
+
+class MemberLoginRequest(BaseModel):
+    """End user password login body."""
+
+    email: str = Field(..., description="End user email")
+    password: str = Field(..., description="End user password")
+
+
 class MemberInfo(UUIDModel):
-    """Member profile for SPA responses."""
+    """End user profile for app auth responses."""
 
     email: str = Field(..., description="Member email")
     first_name: str = Field(..., description="First name")
@@ -25,12 +40,6 @@ class MemberInfo(UUIDModel):
 
 
 class MemberLoginResponse(LoginResponse):
-    """Member login response."""
+    """Member login / register response."""
 
-    member: MemberInfo = Field(..., description="Member info")
-
-
-class MicrosoftIdTokenRequest(BaseModel):
-    """Microsoft Entra ID token exchange body."""
-
-    id_token: str = Field(..., description="Microsoft ID token")
+    member: MemberInfo = Field(..., description="End user info (id is app.user.id)")

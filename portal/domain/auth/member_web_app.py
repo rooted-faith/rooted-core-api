@@ -75,6 +75,11 @@ class MemberWebAppRegistry:
     def apps(self) -> list[MemberWebApp]:
         return list(self._apps)
 
+    @property
+    def default_app_code(self) -> Optional[str]:
+        """First registered member app code — fallback when Origin is absent (mobile)."""
+        return self._apps[0].code if self._apps else None
+
     def resolve_app_code(self, origin: Optional[str] = None, referer: Optional[str] = None) -> Optional[str]:
         """
         Resolve request Origin (preferred) or Referer to app_code.

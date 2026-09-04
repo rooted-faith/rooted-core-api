@@ -5,7 +5,10 @@ Member app application services.
 from dependency_injector import containers, providers
 
 from portal.application.app.end_user_provisioning_service import EndUserProvisioningService
+from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.bible.bible_service import BibleService
+from portal.config import settings as app_settings
+from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
@@ -28,4 +31,18 @@ class AppContainer(containers.DeclarativeContainer):
         end_user_repository=end_user_repository,
         preferences_repository=preferences_repository,
         password_provider=core.password_provider,
+    )
+
+    member_web_app_registry = providers.Singleton(lambda: MemberWebAppRegistry(parse_member_web_apps(app_settings.MEMBER_WEB_APPS)))
+    app_auth_service = providers.Factory(
+        AppAuthService,
+        provisioning_service=end_user_provisioning_service,
+        user_repository=user_repository,
+        end_user_repository=end_user_repository,
+        preferences_repository=preferences_repository,
+        password_provider=core.password_provider,
+        jwt_provider=core.jwt_provider,
+        refresh_token_provider=core.refresh_token_provider,
+        member_refresh_app_binding_provider=core.member_refresh_app_binding_provider,
+        member_web_app_registry=member_web_app_registry,
     )

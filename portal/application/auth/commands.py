@@ -14,6 +14,21 @@ class LoginCommand(BaseModel):
     password: str = Field(..., description="Admin password")
 
 
+class AppRegisterCommand(BaseModel):
+    """End user password registration command."""
+
+    email: str = Field(..., description="End user email")
+    password: str = Field(..., description="End user password")
+    display_name: str = Field(..., description="Display name stored on Preferences")
+
+
+class AppLoginCommand(BaseModel):
+    """End user password login command."""
+
+    email: str = Field(..., description="End user email")
+    password: str = Field(..., description="End user password")
+
+
 class LoginWithoutValidateCommand(BaseModel):
     """Dev-only login command that skips password validation."""
 
