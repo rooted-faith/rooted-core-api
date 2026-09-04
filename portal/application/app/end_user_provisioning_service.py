@@ -41,12 +41,15 @@ class EndUserProvisioningService:
 
         auth_user_id = uuid.uuid4()
         password_hash = self._password_provider.hash_password(command.password)
+        # Password signup verifies the credential for app use; email magic-link
+        # verification is a separate channel (ADR 0003). Admin-only rows stay unverified.
         await self._user_repository.create_credential(
             auth_user_id=auth_user_id,
             email=command.email.strip().lower(),
             password_hash=password_hash,
             is_admin=command.is_admin,
             is_superuser=command.is_superuser,
+            verified=command.create_end_user,
         )
 
         if not command.create_end_user:
