@@ -113,8 +113,8 @@ _Avoid_: treating it as a Prayer request or Share
 ### Auth & platform
 
 **End user**:
-The product identity of someone using the Rooted app — anonymous for read-only devotion/bible where allowed, or authenticated for sync and fellowship. Linked to an auth credential row; created only when the person uses the app as a member (a pure **Admin User** need not have one). Presentation fields such as display name live under **Preferences**.
-_Avoid_: Member (as the identity noun — that word belongs to **Membership** roles), conflating with **Admin User**
+The product identity of someone using the Rooted app — anonymous for read-only devotion/bible where allowed, or authenticated for sync and fellowship. Stored as `app.user` with its own UUID and FK to the auth credential (`auth.user`); created only when the person uses the app as a member (a pure **Admin User** need not have one). Presentation fields such as display name live under **Preferences** (`app.user_preferences`). Future product FKs (journal, groups, …) target `app.user.id`, not `auth.user.id`.
+_Avoid_: Member (as the identity noun — that word belongs to **Membership** roles), conflating with **Admin User**, using `auth.user.id` as the product member FK
 
 **Preferences**:
 End-user settings and presentation defaults (display name, locale, theme, font scale, bible version, stage, reminder) — distinct from auth credentials, from **Admin User** profile fields, and from the End user identity key.

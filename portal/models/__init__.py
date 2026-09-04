@@ -2,6 +2,7 @@
 Top-level package for models.
 """
 
+from .app import AppUser, AppUserPreferences
 from .audit import AuditLog
 from .auth import (
     AuthDevice,
@@ -32,6 +33,9 @@ __all__ = [
     "AuthUser",
     "AuthUserProfile",
     "AuthUserThirdParty",
+    # app end user (product FKs target AppUser.id, not AuthUser.id)
+    "AppUser",
+    "AppUserPreferences",
     # rbac
     "AuthRole",
     "AuthRoleTranslation",
