@@ -13,8 +13,9 @@ Human-owned migration for ADR 0005 / issue #14:
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "94a54cea8e8f"
@@ -53,21 +54,12 @@ def upgrade() -> None:
     op.execute(sa.text("CREATE SCHEMA IF NOT EXISTS auth"))
 
     if not _has_table(inspector, "user"):
-        raise RuntimeError(
-            "auth.user is missing. Apply the platform auth baseline (or create_all for auth) before this revision."
-        )
+        raise RuntimeError("auth.user is missing. Apply the platform auth baseline (or create_all for auth) before this revision.")
 
     # --- auth.user: required email, drop phone ---
     if _has_column(inspector, "user", "email"):
         op.execute(sa.text("DELETE FROM auth.user WHERE email IS NULL"))
-        op.alter_column(
-            "user",
-            "email",
-            existing_type=sa.String(length=255),
-            nullable=False,
-            schema="auth",
-            comment="Email, required unique identifier",
-        )
+        op.alter_column("user", "email", existing_type=sa.String(length=255), nullable=False, schema="auth", comment="Email, required unique identifier")
 
     if _has_unique_constraint(inspector, "user", "uq_user_phone_number"):
         op.drop_constraint("uq_user_phone_number", "user", schema="auth", type_="unique")
@@ -85,13 +77,7 @@ def upgrade() -> None:
             "identity_provider",
             sa.Column("code", sa.String(length=32), nullable=False, comment="Stable provider code, e.g. google, apple"),
             sa.Column("name", sa.String(length=64), nullable=False, comment="English display name"),
-            sa.Column(
-                "is_active",
-                sa.Boolean(),
-                server_default=sa.text("true"),
-                nullable=False,
-                comment="Whether provider may be used for new links",
-            ),
+            sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False, comment="Whether provider may be used for new links"),
             sa.Column(
                 "requires_tenant",
                 sa.Boolean(),
@@ -110,18 +96,8 @@ def upgrade() -> None:
             sa.Column("id", sa.UUID(), server_default=sa.text("uuidv7()"), nullable=False, comment="Primary Key"),
             sa.Column("user_id", sa.UUID(), nullable=False, comment="Auth credential ID"),
             sa.Column("provider", sa.String(length=32), nullable=False, comment="Identity provider code"),
-            sa.Column(
-                "provider_tenant",
-                sa.String(length=255),
-                nullable=True,
-                comment="Optional provider tenant (string); null for consumer IdPs",
-            ),
-            sa.Column(
-                "provider_subject",
-                sa.String(length=255),
-                nullable=False,
-                comment="Provider subject / stable user id at the IdP",
-            ),
+            sa.Column("provider_tenant", sa.String(length=255), nullable=True, comment="Optional provider tenant (string); null for consumer IdPs"),
+            sa.Column("provider_subject", sa.String(length=255), nullable=False, comment="Provider subject / stable user id at the IdP"),
             sa.Column(
                 "additional_data",
                 postgresql.JSONB(astext_type=sa.Text()),
@@ -129,43 +105,17 @@ def upgrade() -> None:
                 comment="Optional IdP snapshot (email, name, auth_time); not the identity key",
             ),
             sa.Column("delete_reason", sa.String(length=64), nullable=True, comment="Delete Reason"),
-            sa.Column(
-                "is_deleted",
-                sa.Boolean(),
-                server_default=sa.text("false"),
-                nullable=False,
-                comment="Is Deleted(Logical Delete)",
-            ),
+            sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False, comment="Is Deleted(Logical Delete)"),
             sa.Column("created_by_id", sa.UUID(), nullable=True, comment="Create User ID"),
-            sa.Column(
-                "created_at",
-                sa.DateTime(timezone=True),
-                server_default=sa.text("now()"),
-                nullable=False,
-                comment="Create Date",
-            ),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False, comment="Create Date"),
             sa.Column("created_by", sa.String(length=64), nullable=False, comment="Create User Name"),
             sa.Column("updated_by_id", sa.UUID(), nullable=True, comment="Update User ID"),
-            sa.Column(
-                "updated_at",
-                sa.DateTime(timezone=True),
-                server_default=sa.text("now()"),
-                nullable=False,
-                comment="Update Date",
-            ),
+            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False, comment="Update Date"),
             sa.Column("updated_by", sa.String(length=64), nullable=False, comment="Update User Name"),
             sa.ForeignKeyConstraint(
-                ["provider"],
-                ["auth.identity_provider.code"],
-                name=op.f("fk_identity_link_provider_identity_provider"),
-                ondelete="RESTRICT",
+                ["provider"], ["auth.identity_provider.code"], name=op.f("fk_identity_link_provider_identity_provider"), ondelete="RESTRICT"
             ),
-            sa.ForeignKeyConstraint(
-                ["user_id"],
-                ["auth.user.id"],
-                name=op.f("fk_identity_link_user_id_user"),
-                ondelete="CASCADE",
-            ),
+            sa.ForeignKeyConstraint(["user_id"], ["auth.user.id"], name=op.f("fk_identity_link_user_id_user"), ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id", name=op.f("pk_identity_link")),
             schema="auth",
         )
@@ -239,58 +189,24 @@ def downgrade() -> None:
             sa.Column("token_expires_at", sa.TIMESTAMP(timezone=True), nullable=True, comment="Token expiration time"),
             sa.Column("additional_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True, comment="Additional data"),
             sa.Column("delete_reason", sa.String(length=64), nullable=True, comment="Delete Reason"),
-            sa.Column(
-                "is_deleted",
-                sa.Boolean(),
-                server_default=sa.text("false"),
-                nullable=False,
-                comment="Is Deleted(Logical Delete)",
-            ),
+            sa.Column("is_deleted", sa.Boolean(), server_default=sa.text("false"), nullable=False, comment="Is Deleted(Logical Delete)"),
             sa.Column("created_by_id", sa.UUID(), nullable=True, comment="Create User ID"),
-            sa.Column(
-                "created_at",
-                sa.DateTime(timezone=True),
-                server_default=sa.text("now()"),
-                nullable=False,
-                comment="Create Date",
-            ),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False, comment="Create Date"),
             sa.Column("created_by", sa.String(length=64), nullable=False, comment="Create User Name"),
             sa.Column("updated_by_id", sa.UUID(), nullable=True, comment="Update User ID"),
-            sa.Column(
-                "updated_at",
-                sa.DateTime(timezone=True),
-                server_default=sa.text("now()"),
-                nullable=False,
-                comment="Update Date",
-            ),
+            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False, comment="Update Date"),
             sa.Column("updated_by", sa.String(length=64), nullable=False, comment="Update User Name"),
             sa.ForeignKeyConstraint(["user_id"], ["auth.user.id"], name="fk_user_third_party_user", ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id", name=op.f("pk_user_third_party")),
-            sa.UniqueConstraint(
-                "user_id",
-                "provider",
-                "provider_uid",
-                name=op.f("uq_user_third_party_user_id_provider_provider_uid"),
-            ),
+            sa.UniqueConstraint("user_id", "provider", "provider_uid", name=op.f("uq_user_third_party_user_id_provider_provider_uid")),
             schema="auth",
         )
         op.create_index(op.f("ix_user_third_party_user_id"), "user_third_party", ["user_id"], unique=False, schema="auth")
 
     inspector = sa.inspect(bind)
     if _has_table(inspector, "user") and not _has_column(inspector, "user", "phone_number"):
-        op.add_column(
-            "user",
-            sa.Column("phone_number", sa.String(length=16), nullable=True, comment="Phone number, unique identifier"),
-            schema="auth",
-        )
+        op.add_column("user", sa.Column("phone_number", sa.String(length=16), nullable=True, comment="Phone number, unique identifier"), schema="auth")
         op.create_unique_constraint(op.f("uq_user_phone_number"), "user", ["phone_number"], schema="auth")
 
     if _has_table(inspector, "user") and _has_column(inspector, "user", "email"):
-        op.alter_column(
-            "user",
-            "email",
-            existing_type=sa.String(length=255),
-            nullable=True,
-            schema="auth",
-            comment="Email, unique identifier",
-        )
+        op.alter_column("user", "email", existing_type=sa.String(length=255), nullable=True, schema="auth", comment="Email, unique identifier")
