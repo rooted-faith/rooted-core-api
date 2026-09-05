@@ -1,10 +1,12 @@
 """
 CLI main entry point
 """
+
 import click
 
 from .bible import dump_bible_process
 from .import_bible import import_bible_data_process
+from .seed_identity_providers import seed_identity_providers_process
 
 
 @click.group()
@@ -23,15 +25,7 @@ def cli():
 @click.option("--include-notes", default=False, is_flag=True, help="Passages include_notes=true")
 @click.option("--meta-only", is_flag=True, help="Only fetch bible/index, not passages")
 def dump_bible_cmd(
-    bible_id: str,
-    out: str,
-    daily_limit: int,
-    sleep: float,
-    timeout: float,
-    format_: str,
-    include_headings: bool,
-    include_notes: bool,
-    meta_only: bool,
+    bible_id: str, out: str, daily_limit: int, sleep: float, timeout: float, format_: str, include_headings: bool, include_notes: bool, meta_only: bool
 ):
     """Dump YouVersion Bible metadata + passages with resume support.
 
@@ -64,7 +58,12 @@ def import_bible_cmd(bible_id: str, data_dir: str):
     import_bible_data_process(bible_id=bible_id, data_dir=data_dir)
 
 
+@cli.command(name="seed-identity-providers")
+def seed_identity_providers_cmd():
+    """Seed auth.identity_provider catalog (google + apple only; insert-if-missing)."""
+    seed_identity_providers_process()
+
+
 def main() -> int:
     cli()
     return 0
-

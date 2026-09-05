@@ -45,3 +45,4 @@ We need a table design that can hold most third-party sign-in bindings before th
 - Repository ports that upsert by `provider_uid` / UUID tenant must move to `provider_subject` + nullable `provider_tenant`.
 - `ThirdPartyProvider` / Microsoft leftovers stay dead until a sign-in ADR; catalog codes are the source of truth for allowed providers.
 - Implementing Apple or Google login is still a separate ADR and must not be inferred from this schema alone.
+- Human Alembic steps: see `docs/migrations/0005-identity-link-alembic-checklist.md`.

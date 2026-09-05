@@ -71,7 +71,6 @@ class ResourceTreeResult(BaseModel):
 class AdminUserListItem(UUIDBaseModel):
     """Admin user list row."""
 
-    phone_number: Optional[str] = Field(default=None)
     email: Optional[str] = Field(default=None)
     display_name: Optional[str] = Field(default=None)
 
@@ -79,7 +78,6 @@ class AdminUserListItem(UUIDBaseModel):
 class AdminUserTableRow(UUIDBaseModel):
     """Admin user table row."""
 
-    phone_number: Optional[str] = Field(default=None)
     email: Optional[str] = Field(default=None)
     verified: bool = Field(default=False)
     is_active: bool = Field(default=True)

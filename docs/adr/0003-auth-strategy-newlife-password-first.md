@@ -1,27 +1,31 @@
-# ADR 0003 — Auth strategy: NewLife-style password-first JWT (no Microsoft OIDC)
+# ADR 0003 — Auth strategy: Admin password-first; app End users passwordless (magic link)
 
 ## Status
 
-Accepted (Phase 0, 2026-08-27)
+Accepted (Phase 0, 2026-08-27); **updated** (2026-09-05) for app passwordless.
+
+Supersedes the earlier “app password + optional magic link” wording in this ADR. Durable Identity storage for future Apple/Google is ADR 0005 — this ADR does **not** authorize OIDC HTTP flows.
 
 ## Context
 
-Rooted v1 requires account-backed sync and fellowship (`rooted-docs` PRD §9.4, API spec §2). The codebase inherits JWT, password hashing, and admin RBAC patterns from the portal/NewLife lineage.
+Rooted requires account-backed sync and fellowship (`rooted-docs` PRD §9.4, API spec §2). The codebase inherits JWT, password hashing, and admin RBAC patterns from the portal/NewLife lineage.
 
-Product spec also describes **magic link** email login for end users. NewLife admin adds **Microsoft Entra ID** token exchange — that flow serves church staff SSO, not Rooted’s consumer devotional audience, and would add OIDC configuration and user-provisioning rules we do not need.
+Product direction for **End users** is **passwordless**: magic-link email login now; Apple/Google Identity links later (schema in ADR 0005). **Admin Users** still need email + password on the shared **Auth credential** table. NewLife’s Microsoft Entra ID token exchange serves church staff SSO — not Rooted’s consumer audience — and remains out of scope.
 
 ## Decision
 
-1. **Primary credential model (shared infrastructure):** email + **password** with JWT access and refresh tokens, implemented using the same provider patterns as NewLife (password hash, `JWTProvider`, refresh rotation/blacklist as enabled).
-2. **Admin Users** authenticate via admin login endpoints under `/admin/api/v1/auth` with RBAC — password-first; no Microsoft/OIDC login for Rooted admin in v1.
-3. **App end users** expose password registration/login **and** magic-link endpoints per `rooted-docs/docs/backend/api-specification.md`; magic link is an additional factorless channel, not a separate auth stack.
-4. **Explicitly out of scope:** Microsoft Entra ID / Azure AD token exchange, generic OIDC social login, and NewLife-style `MicrosoftAuthService`.
-5. **Token policy:** follow product ranges (access ~15–60 minutes, refresh ~7–30 days) via configuration; clients send `Authorization: Bearer`.
-6. **Anonymous access:** allow unauthenticated reads where the API spec marks devotion/bible as client-first; fellowship and journal require member JWT.
+1. **Shared infrastructure:** JWT access + refresh tokens, password hashing providers, and refresh rotation/blacklist as enabled — same plumbing for Admin and (when issued) member tokens.
+2. **Admin Users** authenticate via `/admin/api/v1/auth` with **email + password** and RBAC. No Microsoft/OIDC login for Rooted admin.
+3. **App End users** authenticate via **magic link only** (request + verify). Do **not** expose app password register/login as the product path. Magic-link verify may create an Auth credential with `password_hash` null plus End user + Preferences.
+4. **Auth credential:** required email; optional password (required for Admin create/login); zero or more Identity links (ADR 0005). Phone is not a credential identifier.
+5. **Explicitly out of scope:** Microsoft Entra / Azure AD token exchange, generic OIDC social login, and NewLife-style `MicrosoftAuthService`. Enabling Apple/Google HTTP flows requires a future ADR on top of ADR 0005 storage.
+6. **Token policy:** follow product ranges (access ~15–60 minutes, refresh ~7–30 days) via configuration; clients send `Authorization: Bearer`.
+7. **Anonymous access:** allow unauthenticated reads where the API spec marks devotion/bible as client-first; fellowship and journal require member JWT.
 
 ## Consequences
 
 - No OIDC client secrets or Entra app registration in Rooted deployments.
-- Auth application services live under `portal/application/auth/` as migration proceeds; legacy middleware remains until routers delegate to services.
-- Magic link implementation must reuse the same user records and JWT issuance as password login.
+- Agents must not reintroduce app password register/login as the primary End-user path.
+- Admin password create/login must keep working on the same `auth.user` rows End users use (shared credential; ADR 0004).
+- Magic-link token storage is ephemeral (e.g. Redis TTL), not on Identity link rows.
 - If enterprise SSO is ever required, it demands a new ADR — it is not a silent port from `newlife-core-api`.

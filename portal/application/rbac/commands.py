@@ -139,7 +139,6 @@ class AdminUserPagesQueryCommand(PagesQueryCommand):
 class CreateAdminUserCommand(BaseModel):
     """Create admin user command."""
 
-    phone_number: Optional[str] = Field(default=None)
     email: str = Field(...)
     verified: bool = Field(default=False)
     is_active: bool = Field(default=True)
@@ -155,7 +154,6 @@ class CreateAdminUserCommand(BaseModel):
 class UpdateAdminUserCommand(BaseModel):
     """Update admin user command."""
 
-    phone_number: Optional[str] = Field(default=None)
     email: str = Field(...)
     verified: bool = Field(default=False)
     is_active: bool = Field(default=True)

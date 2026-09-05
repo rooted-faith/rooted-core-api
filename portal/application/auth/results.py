@@ -75,7 +75,6 @@ class UserDetail(UUIDBaseModel):
     is_active: bool = Field(default=True, description="Whether the user is active")
     is_superuser: bool = Field(default=False, description="Whether the user is a superuser")
     is_admin: bool = Field(default=False, description="Whether the user can access admin portal")
-    phone_number: Optional[str] = Field(default=None, description="User phone number")
     last_login_at: Optional[datetime] = Field(default=None, description="Last login timestamp")
     first_name: Optional[str] = Field(default=None, description="First name")
     last_name: Optional[str] = Field(default=None, description="Last name")

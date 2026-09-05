@@ -4,13 +4,14 @@ Top-level package for auth models.
 
 from .rbac import AuthPermission, AuthPermissionTranslation, AuthResource, AuthResourceTranslation, AuthRole, AuthRoleTranslation, AuthVerb, AuthVerbTranslation
 from .relationships import AuthRolePermission, AuthUserRole
-from .user import AuthDevice, AuthRefreshToken, AuthUser, AuthUserProfile, AuthUserThirdParty
+from .user import AuthDevice, AuthIdentityLink, AuthIdentityProvider, AuthRefreshToken, AuthUser, AuthUserProfile
 
 __all__ = [
     # user
     "AuthUser",
     "AuthUserProfile",
-    "AuthUserThirdParty",
+    "AuthIdentityProvider",
+    "AuthIdentityLink",
     # rbac
     "AuthRole",
     "AuthRoleTranslation",

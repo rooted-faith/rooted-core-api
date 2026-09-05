@@ -2,12 +2,10 @@
 Auth domain ports.
 """
 
-from datetime import datetime
 from typing import Any, Optional, Protocol
 from uuid import UUID
 
 from portal.application.auth.results import UserDetail, UserSensitive
-from portal.libs.consts.enums import ThirdPartyProvider
 
 
 class UserRepositoryPort(Protocol):
@@ -27,19 +25,13 @@ class UserRepositoryPort(Protocol):
 
     async def update_last_login_at(self, user_id: UUID, last_login_at) -> None: ...
 
-    async def upsert_auth_user_third_party(
-        self,
-        user_id: UUID,
-        provider: ThirdPartyProvider,
-        provider_uid: str,
-        provider_tenant_id: UUID,
-        additional_data: dict[str, Any],
-        token_expires_at: Optional[datetime] = None,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+    async def get_user_id_by_identity_link(self, provider: str, provider_subject: str, provider_tenant: Optional[str] = None) -> Optional[UUID]: ...
+
+    async def upsert_identity_link(
+        self, user_id: UUID, provider: str, provider_subject: str, *, provider_tenant: Optional[str] = None, additional_data: Optional[dict[str, Any]] = None
     ) -> None: ...
 
-    async def get_user_id_by_third_party(self, provider: ThirdPartyProvider, provider_uid: str) -> Optional[UUID]: ...
+    async def soft_delete_identity_link(self, user_id: UUID, provider: str) -> None: ...
 
     async def create_directory_user(
         self,
@@ -60,7 +52,7 @@ class UserRepositoryPort(Protocol):
     async def update_user_active_flag(self, user_id: UUID, is_active: bool) -> None: ...
 
     async def create_credential(
-        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+        self, *, auth_user_id: UUID, email: str, password_hash: Optional[str], is_admin: bool, is_superuser: bool = False, verified: bool = False
     ) -> UUID:
-        """Insert auth.user only (no AuthUserProfile, no app.user)."""
+        """Insert auth.user only (no AuthUserProfile, no app.user). password_hash may be null for passwordless End users."""
         ...
