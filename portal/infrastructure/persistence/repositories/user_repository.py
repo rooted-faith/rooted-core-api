@@ -129,16 +129,19 @@ class UserRepository:
         profile_id = await self._session.select(AuthUserProfile.id).where(AuthUserProfile.user_id == user_id).fetchval()
         return bool(profile_id)
 
-    async def get_user_id_by_identity_link(self, provider: str, provider_subject: str, provider_tenant: Optional[str] = None) -> Optional[UUID]:
-        query = (
-            self._session.select(AuthIdentityLink.user_id)
+    def _active_identity_link_by_subject(self, provider: str, provider_subject: str, provider_tenant: Optional[str]):
+        return (
+            self._session.select(AuthIdentityLink.id, AuthIdentityLink.user_id)
             .where(AuthIdentityLink.provider == provider)
             .where(AuthIdentityLink.provider_subject == provider_subject)
             .where(AuthIdentityLink.is_deleted == False)
             .where(provider_tenant is None, lambda: AuthIdentityLink.provider_tenant.is_(None))
             .where(provider_tenant is not None, lambda: AuthIdentityLink.provider_tenant == provider_tenant)
         )
-        return await query.fetchval()
+
+    async def get_user_id_by_identity_link(self, provider: str, provider_subject: str, provider_tenant: Optional[str] = None) -> Optional[UUID]:
+        row = await self._active_identity_link_by_subject(provider, provider_subject, provider_tenant).fetchrow()
+        return row["user_id"] if row else None
 
     async def create_directory_user(
         self,
@@ -425,20 +428,15 @@ class UserRepository:
         self, user_id: UUID, provider: str, provider_subject: str, *, provider_tenant: Optional[str] = None, additional_data: Optional[dict[str, Any]] = None
     ) -> None:
         now = datetime.now(timezone.utc)
-        existing_id = await (
-            self._session.select(AuthIdentityLink.id)
-            .where(AuthIdentityLink.provider == provider)
-            .where(AuthIdentityLink.provider_subject == provider_subject)
-            .where(AuthIdentityLink.is_deleted == False)
-            .where(provider_tenant is None, lambda: AuthIdentityLink.provider_tenant.is_(None))
-            .where(provider_tenant is not None, lambda: AuthIdentityLink.provider_tenant == provider_tenant)
-            .fetchval()
-        )
-        if existing_id:
+        existing = await self._active_identity_link_by_subject(provider, provider_subject, provider_tenant).fetchrow()
+        if existing:
+            if existing["user_id"] != user_id:
+                # Preserve active uniqueness of (user_id, provider) when reassigning a subject.
+                await self.soft_delete_identity_link(user_id, provider)
             await (
                 self._session.update(AuthIdentityLink)
                 .values(user_id=user_id, additional_data=additional_data, updated_at=now, updated_by="identity_link")
-                .where(AuthIdentityLink.id == existing_id)
+                .where(AuthIdentityLink.id == existing["id"])
                 .execute()
             )
             return

@@ -34,9 +34,12 @@ class InMemoryIdentityLinkStore:
     ) -> None:
         for row in self._active():
             if self._matches_subject(row, provider, provider_subject, provider_tenant):
+                if row["user_id"] != user_id:
+                    await self.soft_delete_identity_link(user_id, provider)
                 row["user_id"] = user_id
                 row["additional_data"] = additional_data
                 return
+        for row in self._active():
             if row["user_id"] == user_id and row["provider"] == provider:
                 row["provider_subject"] = provider_subject
                 row["provider_tenant"] = provider_tenant
@@ -101,3 +104,19 @@ async def test_identity_link_soft_delete_then_re_link_same_subject() -> None:
     assert await store.get_user_id_by_identity_link("google", "google-sub-1") == user_id
     assert sum(1 for row in store._links if not row["is_deleted"]) == 1
     assert sum(1 for row in store._links if row["is_deleted"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_identity_link_reassign_subject_clears_target_users_other_link() -> None:
+    store = InMemoryIdentityLinkStore()
+    user_a = uuid4()
+    user_b = uuid4()
+
+    await store.upsert_identity_link(user_a, "google", "shared-sub")
+    await store.upsert_identity_link(user_b, "google", "b-old-sub")
+    await store.upsert_identity_link(user_b, "google", "shared-sub")
+
+    assert await store.get_user_id_by_identity_link("google", "shared-sub") == user_b
+    active_for_b = [row for row in store._active() if row["user_id"] == user_b and row["provider"] == "google"]
+    assert len(active_for_b) == 1
+    assert active_for_b[0]["provider_subject"] == "shared-sub"
