@@ -6,6 +6,8 @@ from .app import AppUser, AppUserPreferences
 from .audit import AuditLog
 from .auth import (
     AuthDevice,
+    AuthIdentityLink,
+    AuthIdentityProvider,
     AuthPermission,
     AuthPermissionTranslation,
     AuthRefreshToken,
@@ -17,7 +19,6 @@ from .auth import (
     AuthUser,
     AuthUserProfile,
     AuthUserRole,
-    AuthUserThirdParty,
     AuthVerb,
     AuthVerbTranslation,
 )
@@ -32,7 +33,8 @@ __all__ = [
     # user
     "AuthUser",
     "AuthUserProfile",
-    "AuthUserThirdParty",
+    "AuthIdentityProvider",
+    "AuthIdentityLink",
     # app end user (product FKs target AppUser.id, not AuthUser.id)
     "AppUser",
     "AppUserPreferences",

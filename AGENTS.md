@@ -12,8 +12,8 @@ This document helps AI agents quickly understand the **Rooted Core API** codebas
 | **Framework**       | FastAPI (async)                                                                                            |
 | **Database**        | PostgreSQL + SQLAlchemy (asyncpg)                                                                          |
 | **Cache**           | Redis (sessions, rate limiting, auth blacklist when enabled)                                               |
-| **Auth (app)**      | JWT — email/password and optional magic link (see ADR 0003); **no** Microsoft Entra / OIDC in scope        |
-| **Auth (admin)**    | JWT + RBAC for admin console at `/admin`                                                                   |
+| **Auth (app)**      | JWT — passwordless magic link for End users (see ADR 0003); Identity link storage ADR 0005; **no** Microsoft Entra / OIDC in scope |
+| **Auth (admin)**    | JWT + RBAC — email/password for admin console at `/admin`                                                   |
 | **DI**              | `dependency-injector`                                                                                      |
 | **Package manager** | uv (`uv run …`)                                                                                            |
 | **Python**          | 3.14+ (see `pyproject.toml`)                                                                               |
@@ -146,7 +146,7 @@ Rooted v1 domains (from PRD and `rooted-docs`). Use these folder names when addi
 
 | Context    | Responsibility                                      |
 | ---------- | --------------------------------------------------- |
-| **auth**   | Register/login, refresh, magic link (optional), JWT |
+| **auth**   | Magic-link (passwordless) End-user auth, Admin password login, refresh, JWT; Identity links (ADR 0005) |
 | **users**  | Profile, preferences, account deletion              |
 | **sync**   | Client ↔ server sync for v1                         |
 | **reports**| User reports + moderation queue                     |
@@ -206,14 +206,16 @@ See ADR 0003.
 
 ### App users
 
-- Primary: **email + password** (NewLife-style admin parity for password hashing/JWT plumbing).
-- Product also specifies **magic link** endpoints for end users — implement alongside password, not instead of shared JWT infrastructure.
-- **Excluded:** Microsoft Entra ID token exchange, OIDC social login.
+- **Passwordless:** magic-link request/verify for End users (ADR 0003). Auth credentials may have `password_hash` null.
+- Shared JWT access/refresh infrastructure with Admin; product FKs hang off End user (`app.user`), not `auth.user` alone (ADR 0004).
+- Identity provider catalog + Identity link rows prepare Apple/Google storage (ADR 0005) — OAuth/OIDC HTTP flows are a future ADR.
+- **Excluded:** Microsoft Entra ID token exchange, app password register/login as the product path, phone-as-login-id.
 
 ### Admin
 
 1. `AuthMiddleware` validates Bearer JWT and loads admin user.
-2. RBAC via permissions on admin routes (see `portal/libs/consts/permission.py` pattern).
+2. RBAC via permissions on admin routes (see `portal.libs.consts.permission` pattern).
+3. Admin create/login remains **email + password** on the shared Auth credential.
 
 ### Auth levels (product)
 

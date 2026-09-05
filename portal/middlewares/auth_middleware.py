@@ -195,7 +195,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         user_context = UserContext(
             user_id=user.id,
-            phone_number=user.phone_number,
             email=user.email,
             verified=user.verified,
             is_active=user.is_active,
@@ -244,7 +243,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         user_context = UserContext(
             user_id=user.id,
-            phone_number=user.phone_number,
             email=user.email,
             verified=user.verified,
             is_active=user.is_active,

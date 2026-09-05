@@ -1,5 +1,5 @@
 """
-User-related models: account, profile, third-party provider and auth.
+User-related models: Auth credential, profile, Identity provider / link, devices, tokens.
 """
 
 import sqlalchemy as sa
@@ -8,18 +8,17 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from portal.libs.consts.enums import Gender
-from portal.libs.database.orm import ModelBase
+from portal.libs.database.orm import Base, ModelBase
 from portal.models.mixins import AuditMixin, DeletedMixin, DescriptionMixin, RemarkMixin
 
 from .relationships import AuthUserRole
 
 
 class AuthUser(ModelBase, RemarkMixin, DeletedMixin, AuditMixin):
-    """Auth User Model"""
+    """Auth credential (sign-in subject)."""
 
-    email = Column(sa.String(255), nullable=True, unique=True, comment="Email, unique identifier")
-    phone_number = Column(sa.String(16), nullable=True, unique=True, comment="Phone number, unique identifier")
-    password_hash = Column(sa.String(512), nullable=True, comment="Password hash")
+    email = Column(sa.String(255), nullable=False, unique=True, comment="Email, required unique identifier")
+    password_hash = Column(sa.String(512), nullable=True, comment="Password hash; null for passwordless End users")
     salt = Column(sa.String(128), nullable=True, comment="Salt for password hash")
     verified = Column(sa.Boolean, default=False, comment="Is verified")
     is_active = Column(sa.Boolean, default=True, index=True, comment="Is active")
@@ -35,7 +34,7 @@ class AuthUser(ModelBase, RemarkMixin, DeletedMixin, AuditMixin):
 
 
 class AuthUserProfile(ModelBase, AuditMixin, DescriptionMixin):
-    """Auth User Profile Model"""
+    """Auth User Profile Model (admin-oriented)."""
 
     user_id = Column(UUID, sa.ForeignKey(AuthUser.id, ondelete="CASCADE"), nullable=False, unique=True, comment="User ID", index=True)
     first_name = Column(sa.String(64), nullable=False, comment="First name")
@@ -46,18 +45,38 @@ class AuthUserProfile(ModelBase, AuditMixin, DescriptionMixin):
     preferred_locale_id = Column(UUID, sa.ForeignKey("public.system_locale.id", ondelete="SET NULL"), nullable=True, index=True, comment="Preferred locale ID")
 
 
-class AuthUserThirdParty(ModelBase, DeletedMixin, AuditMixin):
-    """Auth User Third Party Model"""
+class AuthIdentityProvider(Base):
+    """Catalog of external sign-in sources (Identity provider)."""
 
-    __extra_table_args__ = (sa.UniqueConstraint("user_id", "provider", "provider_uid"),)
-    user_id = Column(UUID, sa.ForeignKey(AuthUser.id, ondelete="CASCADE", name="fk_user_third_party_user"), nullable=False, comment="User ID", index=True)
-    provider = Column(sa.String(16), nullable=False, comment="Provider name, Enum: ThirdPartyProvider")
-    provider_tenant_id = Column(UUID, nullable=False, comment="Provider tenant ID")
-    provider_uid = Column(sa.String(255), nullable=False, comment="Provider UID")
-    access_token = Column(sa.String(255), comment="Access token")
-    refresh_token = Column(sa.String(255), comment="Refresh token")
-    token_expires_at = Column(sa.TIMESTAMP(timezone=True), comment="Token expiration time")
-    additional_data = Column(JSONB, comment="Additional data")
+    code = Column(sa.String(32), primary_key=True, comment="Stable provider code, e.g. google, apple")
+    name = Column(sa.String(64), nullable=False, comment="English display name")
+    is_active = Column(sa.Boolean, nullable=False, server_default=sa.text("true"), comment="Whether provider may be used for new links")
+    requires_tenant = Column(sa.Boolean, nullable=False, server_default=sa.text("false"), comment="Whether provider_tenant is required on Identity links")
+
+
+class AuthIdentityLink(ModelBase, DeletedMixin, AuditMixin):
+    """Durable binding from an Identity provider subject to an Auth credential."""
+
+    __extra_table_args__ = (
+        sa.Index(
+            "uq_identity_link_provider_subject_active",
+            "provider",
+            "provider_tenant",
+            "provider_subject",
+            unique=True,
+            postgresql_where=sa.text("is_deleted IS false"),
+            postgresql_nulls_not_distinct=True,
+        ),
+        sa.Index("uq_identity_link_user_provider_active", "user_id", "provider", unique=True, postgresql_where=sa.text("is_deleted IS false")),
+    )
+
+    user_id = Column(UUID, sa.ForeignKey(AuthUser.id, ondelete="CASCADE"), nullable=False, index=True, comment="Auth credential ID")
+    provider = Column(
+        sa.String(32), sa.ForeignKey("auth.identity_provider.code", ondelete="RESTRICT"), nullable=False, index=True, comment="Identity provider code"
+    )
+    provider_tenant = Column(sa.String(255), nullable=True, comment="Optional provider tenant (string); null for consumer IdPs")
+    provider_subject = Column(sa.String(255), nullable=False, comment="Provider subject / stable user id at the IdP")
+    additional_data = Column(JSONB, comment="Optional IdP snapshot (email, name, auth_time); not the identity key")
 
 
 class AuthDevice(ModelBase, AuditMixin, DeletedMixin):

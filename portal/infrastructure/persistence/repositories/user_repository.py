@@ -2,8 +2,6 @@
 User repository implementation (merged UserHandler + AdminUserHandler SQL).
 """
 
-import json
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -16,9 +14,9 @@ from portal.application.rbac.commands import AdminUserPagesQueryCommand, CreateA
 from portal.application.rbac.results import AdminUserDetailResult, AdminUserListItem, AdminUserTableRow, CreateIdResult
 from portal.domain.auth.constants import AuthErrorCode
 from portal.exceptions.responses import ConflictErrorException
-from portal.libs.consts.enums import Gender, ThirdPartyProvider
+from portal.libs.consts.enums import Gender
 from portal.libs.database import Session
-from portal.models import AuthUser, AuthUserProfile, AuthUserRole, AuthUserThirdParty, SystemLocale
+from portal.models import AuthIdentityLink, AuthUser, AuthUserProfile, AuthUserRole, SystemLocale
 
 
 class UserRepository:
@@ -32,7 +30,6 @@ class UserRepository:
         user: UserDetail = await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.verified,
                 AuthUser.is_active,
@@ -54,7 +51,6 @@ class UserRepository:
         user: UserSensitive = await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.password_hash,
                 AuthUser.verified,
@@ -84,7 +80,6 @@ class UserRepository:
         user: UserSensitive = await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.password_hash,
                 AuthUser.verified,
@@ -114,7 +109,6 @@ class UserRepository:
         user: UserSensitive = await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.password_hash,
                 AuthUser.verified,
@@ -135,15 +129,19 @@ class UserRepository:
         profile_id = await self._session.select(AuthUserProfile.id).where(AuthUserProfile.user_id == user_id).fetchval()
         return bool(profile_id)
 
-    async def get_user_id_by_third_party(self, provider: ThirdPartyProvider, provider_uid: str) -> Optional[UUID]:
-        user_id = await (
-            self._session.select(AuthUserThirdParty.user_id)
-            .where(AuthUserThirdParty.provider == provider.value)
-            .where(AuthUserThirdParty.provider_uid == provider_uid)
-            .where(AuthUserThirdParty.is_deleted == False)
-            .fetchval()
+    def _active_identity_link_by_subject(self, provider: str, provider_subject: str, provider_tenant: Optional[str]):
+        return (
+            self._session.select(AuthIdentityLink.id, AuthIdentityLink.user_id)
+            .where(AuthIdentityLink.provider == provider)
+            .where(AuthIdentityLink.provider_subject == provider_subject)
+            .where(AuthIdentityLink.is_deleted == False)
+            .where(provider_tenant is None, lambda: AuthIdentityLink.provider_tenant.is_(None))
+            .where(provider_tenant is not None, lambda: AuthIdentityLink.provider_tenant == provider_tenant)
         )
-        return user_id
+
+    async def get_user_id_by_identity_link(self, provider: str, provider_subject: str, provider_tenant: Optional[str] = None) -> Optional[UUID]:
+        row = await self._active_identity_link_by_subject(provider, provider_subject, provider_tenant).fetchrow()
+        return row["user_id"] if row else None
 
     async def create_directory_user(
         self,
@@ -222,7 +220,6 @@ class UserRepository:
         items, count = await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.verified,
                 AuthUser.is_active,
@@ -242,7 +239,6 @@ class UserRepository:
             .where(
                 model.keyword,
                 lambda: sa.or_(
-                    AuthUser.phone_number.ilike(f"%{model.keyword}%"),
                     AuthUser.email.ilike(f"%{model.keyword}%"),
                     AuthUserProfile.first_name.ilike(f"%{model.keyword}%"),
                     AuthUserProfile.last_name.ilike(f"%{model.keyword}%"),
@@ -263,12 +259,11 @@ class UserRepository:
 
     async def get_user_list(self, keyword: Optional[str] = None) -> list[AdminUserListItem]:
         users: list[AdminUserListItem] = await (
-            self._session.select(AuthUser.id, AuthUser.phone_number, AuthUser.email, AuthUserProfile.preferred_name.label("display_name"))
+            self._session.select(AuthUser.id, AuthUser.email, AuthUserProfile.preferred_name.label("display_name"))
             .join(AuthUserProfile, AuthUser.id == AuthUserProfile.user_id)
             .where(
                 keyword,
                 lambda: sa.or_(
-                    AuthUser.phone_number.ilike(f"%{keyword}%"),
                     AuthUser.email.ilike(f"%{keyword}%"),
                     AuthUserProfile.preferred_name.ilike(f"%{keyword}%"),
                     AuthUserProfile.first_name.ilike(f"%{keyword}%"),
@@ -287,7 +282,6 @@ class UserRepository:
         return await (
             self._session.select(
                 AuthUser.id,
-                AuthUser.phone_number,
                 AuthUser.email,
                 AuthUser.verified,
                 AuthUser.is_active,
@@ -309,7 +303,7 @@ class UserRepository:
         )
 
     async def create_credential(
-        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+        self, *, auth_user_id: UUID, email: str, password_hash: Optional[str], is_admin: bool, is_superuser: bool = False, verified: bool = False
     ) -> UUID:
         """Insert auth.user credential only — no AuthUserProfile and no app.user."""
         try:
@@ -330,7 +324,6 @@ class UserRepository:
                 self._session.insert(AuthUser)
                 .values(
                     id=user_id,
-                    phone_number=model.phone_number,
                     email=model.email,
                     password_hash=password_hash,
                     verified=model.verified,
@@ -361,7 +354,6 @@ class UserRepository:
             await (
                 self._session.update(AuthUser)
                 .values(
-                    phone_number=model.phone_number,
                     email=model.email,
                     verified=model.verified,
                     is_active=model.is_active,
@@ -432,46 +424,67 @@ class UserRepository:
     async def update_last_login_at(self, user_id: UUID, last_login_at: datetime) -> None:
         await self._session.update(AuthUser).where(AuthUser.id == user_id).values(last_login_at=last_login_at).execute()
 
-    async def upsert_auth_user_third_party(
-        self,
-        user_id: UUID,
-        provider: ThirdPartyProvider,
-        provider_uid: str,
-        provider_tenant_id: UUID,
-        additional_data: dict[str, Any],
-        token_expires_at: Optional[datetime] = None,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
+    async def upsert_identity_link(
+        self, user_id: UUID, provider: str, provider_subject: str, *, provider_tenant: Optional[str] = None, additional_data: Optional[dict[str, Any]] = None
     ) -> None:
         now = datetime.now(timezone.utc)
-        row_id = uuid4()
-        serialized_additional_data = json.dumps(additional_data)
+        existing = await self._active_identity_link_by_subject(provider, provider_subject, provider_tenant).fetchrow()
+        if existing:
+            if existing["user_id"] != user_id:
+                # Preserve active uniqueness of (user_id, provider) when reassigning a subject.
+                await self.soft_delete_identity_link(user_id, provider)
+            await (
+                self._session.update(AuthIdentityLink)
+                .values(user_id=user_id, additional_data=additional_data, updated_at=now, updated_by="identity_link")
+                .where(AuthIdentityLink.id == existing["id"])
+                .execute()
+            )
+            return
+
+        per_user_id = await (
+            self._session.select(AuthIdentityLink.id)
+            .where(AuthIdentityLink.user_id == user_id)
+            .where(AuthIdentityLink.provider == provider)
+            .where(AuthIdentityLink.is_deleted == False)
+            .fetchval()
+        )
+        if per_user_id:
+            await (
+                self._session.update(AuthIdentityLink)
+                .values(
+                    provider_subject=provider_subject,
+                    provider_tenant=provider_tenant,
+                    additional_data=additional_data,
+                    updated_at=now,
+                    updated_by="identity_link",
+                )
+                .where(AuthIdentityLink.id == per_user_id)
+                .execute()
+            )
+            return
+
         await (
-            self._session.insert(AuthUserThirdParty)
+            self._session.insert(AuthIdentityLink)
             .values(
-                id=row_id,
+                id=uuid4(),
                 user_id=user_id,
-                provider=provider.value,
-                provider_tenant_id=provider_tenant_id,
-                provider_uid=provider_uid,
-                access_token=access_token,
-                refresh_token=refresh_token,
-                token_expires_at=token_expires_at,
-                additional_data=serialized_additional_data,
+                provider=provider,
+                provider_tenant=provider_tenant,
+                provider_subject=provider_subject,
+                additional_data=additional_data,
                 is_deleted=False,
-                created_by="oauth",
-                updated_by="oauth",
+                created_by="identity_link",
+                updated_by="identity_link",
             )
-            .on_conflict_do_update(
-                index_elements=["user_id", "provider", "provider_uid"],
-                set_={
-                    "provider_tenant_id": provider_tenant_id,
-                    "token_expires_at": token_expires_at,
-                    "additional_data": serialized_additional_data,
-                    "updated_at": now,
-                    "updated_by": "oauth",
-                    "is_deleted": False,
-                },
-            )
+            .execute()
+        )
+
+    async def soft_delete_identity_link(self, user_id: UUID, provider: str) -> None:
+        await (
+            self._session.update(AuthIdentityLink)
+            .values(is_deleted=True, updated_at=datetime.now(timezone.utc), updated_by="identity_link")
+            .where(AuthIdentityLink.user_id == user_id)
+            .where(AuthIdentityLink.provider == provider)
+            .where(AuthIdentityLink.is_deleted == False)
             .execute()
         )

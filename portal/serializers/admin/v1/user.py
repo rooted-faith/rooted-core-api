@@ -26,7 +26,6 @@ class AdminUserQuery(GenericQueryBaseModel):
 class AdminUserBase(UUIDBaseModel, JSONStringMixinModel):
     """UserBase"""
 
-    phone_number: Optional[str] = Field(None, description="User's phone number", serialization_alias="phoneNumber")
     email: Optional[str] = Field(None, description="User's email address")
     display_name: Optional[str] = Field(None, description="User's display name", serialization_alias="displayName")
 
@@ -58,7 +57,6 @@ class AdminUserList(BaseModel):
 class AdminUserCreate(BaseModel):
     """UserCreate"""
 
-    phone_number: Optional[str] = Field(..., description="User's phone number")
     email: str = Field(..., description="User's email address")
     verified: bool = Field(False, description="Is the user verified")
     is_active: bool = Field(True, description="Is the user active")

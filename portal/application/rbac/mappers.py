@@ -190,7 +190,6 @@ def resource_list_query_to_command(model: DeleteQueryBaseModel) -> ResourceListQ
 
 def create_admin_user_to_command(model: AdminUserCreate) -> CreateAdminUserCommand:
     return CreateAdminUserCommand(
-        phone_number=model.phone_number,
         email=model.email,
         verified=model.verified,
         is_active=model.is_active,
@@ -206,7 +205,6 @@ def create_admin_user_to_command(model: AdminUserCreate) -> CreateAdminUserComma
 
 def update_admin_user_to_command(model: AdminUserUpdate) -> UpdateAdminUserCommand:
     return UpdateAdminUserCommand(
-        phone_number=model.phone_number,
         email=model.email,
         verified=model.verified,
         is_active=model.is_active,
