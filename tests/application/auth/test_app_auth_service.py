@@ -1,20 +1,21 @@
 """
-Application-service seam: End user register / login (stub ports).
+Application-service seam: End user magic-link request / verify (stub ports).
 
-Happy path: register provisions credential + End user + Preferences and
-returns member tokens; login authenticates an existing End user.
+Happy path: verify for a new email provisions passwordless credential + End user
++ Preferences and returns member tokens; verify for an existing End user returns
+tokens without a password. Invalid/expired tokens are rejected.
 """
 
-from datetime import datetime, timezone
+from typing import Optional
 from uuid import UUID, uuid4
 
 import pytest
 
 from portal.application.auth.app_auth_service import AppAuthService
-from portal.application.auth.commands import AppLoginCommand, AppRegisterCommand
-from portal.application.auth.results import MemberLoginResult, TokenResult, UserSensitive
+from portal.application.auth.commands import AppMagicLinkRequestCommand, AppMagicLinkVerifyCommand
+from portal.application.auth.results import MemberLoginResult, UserSensitive
 from portal.domain.app.entities import EndUser, UserPreferences
-from portal.exceptions.responses import BadRequestException, UnauthorizedException
+from portal.exceptions.responses import UnauthorizedException
 
 
 class StubPasswordProvider:
@@ -34,7 +35,7 @@ class StubUserRepository:
         self.last_login_updates: list[UUID] = []
 
     async def create_credential(
-        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+        self, *, auth_user_id: UUID, email: str, password_hash: Optional[str], is_admin: bool, is_superuser: bool = False, verified: bool = False
     ) -> UUID:
         user = UserSensitive(
             id=auth_user_id,
@@ -112,13 +113,38 @@ class StubMemberWebAppRegistry:
         return None
 
 
-def _build_service() -> tuple[AppAuthService, StubUserRepository, StubEndUserRepository, StubPreferencesRepository]:
+class StubMagicLinkTokenStore:
+    def __init__(self):
+        self._by_email: dict[str, str] = {}
+
+    async def store(self, email: str, token_hash: str, ttl_seconds: int) -> None:
+        self._by_email[email.strip().lower()] = token_hash
+
+    async def consume(self, email: str, token_hash: str) -> bool:
+        key = email.strip().lower()
+        stored = self._by_email.pop(key, None)
+        return stored is not None and stored == token_hash
+
+
+class StubMagicLinkMailer:
+    def __init__(self):
+        self.sent: list[tuple[str, str]] = []
+
+    async def send_magic_link(self, email: str, token: str) -> None:
+        self.sent.append((email, token))
+
+
+def _build_service() -> tuple[
+    AppAuthService, StubUserRepository, StubEndUserRepository, StubPreferencesRepository, StubMagicLinkMailer, StubMagicLinkTokenStore
+]:
     from portal.application.app.end_user_provisioning_service import EndUserProvisioningService
 
     user_repo = StubUserRepository()
     end_user_repo = StubEndUserRepository()
     prefs_repo = StubPreferencesRepository()
     password = StubPasswordProvider()
+    mailer = StubMagicLinkMailer()
+    token_store = StubMagicLinkTokenStore()
     provisioning = EndUserProvisioningService(
         user_repository=user_repo, end_user_repository=end_user_repo, preferences_repository=prefs_repo, password_provider=password
     )
@@ -127,20 +153,28 @@ def _build_service() -> tuple[AppAuthService, StubUserRepository, StubEndUserRep
         user_repository=user_repo,
         end_user_repository=end_user_repo,
         preferences_repository=prefs_repo,
-        password_provider=password,
+        magic_link_token_store=token_store,
+        magic_link_mailer=mailer,
         jwt_provider=StubJwtProvider(),
         refresh_token_provider=StubRefreshTokenProvider(),
         member_refresh_app_binding_provider=StubMemberRefreshAppBindingProvider(),
         member_web_app_registry=StubMemberWebAppRegistry(),
     )
-    return service, user_repo, end_user_repo, prefs_repo
+    return service, user_repo, end_user_repo, prefs_repo, mailer, token_store
+
+
+async def _request_and_get_token(service: AppAuthService, mailer: StubMagicLinkMailer, email: str) -> str:
+    await service.request_magic_link(AppMagicLinkRequestCommand(email=email))
+    assert mailer.sent
+    return mailer.sent[-1][1]
 
 
 @pytest.mark.asyncio
-async def test_register_creates_end_user_and_returns_tokens():
-    service, user_repo, end_user_repo, prefs_repo = _build_service()
+async def test_verify_new_email_creates_passwordless_end_user_and_returns_tokens():
+    service, user_repo, end_user_repo, prefs_repo, mailer, _ = _build_service()
+    token = await _request_and_get_token(service, mailer, "jay@example.com")
 
-    result = await service.register(AppRegisterCommand(email="jay@example.com", password="Secure1!", display_name="Jay"))
+    result = await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token=token))
 
     assert isinstance(result, MemberLoginResult)
     assert result.token.access_token == "access-token"
@@ -148,54 +182,72 @@ async def test_register_creates_end_user_and_returns_tokens():
     assert result.token.token_type == "bearer"
     assert result.token.expires_in > 0
 
-    assert "jay@example.com" in user_repo.by_email
-    assert user_repo.by_email["jay@example.com"].verified is True
-    end_user = end_user_repo.by_auth_user_id[user_repo.by_email["jay@example.com"].id]
+    credential = user_repo.by_email["jay@example.com"]
+    assert credential.password_hash is None
+    assert credential.verified is True
+    end_user = end_user_repo.by_auth_user_id[credential.id]
     assert result.member.id == end_user.id
-    assert result.member.id != user_repo.by_email["jay@example.com"].id
+    assert result.member.id != credential.id
     assert result.member.email == "jay@example.com"
-    assert result.member.preferred_name == "Jay"
-    assert prefs_repo.by_user_id[end_user.id].display_name == "Jay"
-
-
-@pytest.mark.asyncio
-async def test_login_returns_tokens_for_existing_end_user():
-    service, user_repo, end_user_repo, prefs_repo = _build_service()
-    await service.register(AppRegisterCommand(email="jay@example.com", password="Secure1!", display_name="Jay"))
-
-    result = await service.login(AppLoginCommand(email="jay@example.com", password="Secure1!"))
-
-    assert result.token.access_token == "access-token"
-    assert result.member.email == "jay@example.com"
-    assert result.member.preferred_name == "Jay"
-    end_user = next(iter(end_user_repo.by_auth_user_id.values()))
-    assert result.member.id == end_user.id
+    assert prefs_repo.by_user_id[end_user.id].display_name == "jay"
     assert user_repo.last_login_updates
 
 
 @pytest.mark.asyncio
-async def test_login_rejects_wrong_password():
-    service, *_ = _build_service()
-    await service.register(AppRegisterCommand(email="jay@example.com", password="Secure1!", display_name="Jay"))
+async def test_verify_existing_email_returns_tokens_without_password():
+    service, user_repo, end_user_repo, prefs_repo, mailer, _ = _build_service()
+    first_token = await _request_and_get_token(service, mailer, "jay@example.com")
+    await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token=first_token))
 
-    with pytest.raises(UnauthorizedException):
-        await service.login(AppLoginCommand(email="jay@example.com", password="WrongPass1"))
+    second_token = await _request_and_get_token(service, mailer, "jay@example.com")
+    result = await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token=second_token))
+
+    assert result.token.access_token == "access-token"
+    assert result.member.email == "jay@example.com"
+    end_user = next(iter(end_user_repo.by_auth_user_id.values()))
+    assert result.member.id == end_user.id
+    assert user_repo.by_email["jay@example.com"].password_hash is None
+    assert len(prefs_repo.by_user_id) == 1
 
 
 @pytest.mark.asyncio
-async def test_login_rejects_credential_without_end_user():
-    service, user_repo, end_user_repo, _ = _build_service()
-    auth_user_id = uuid4()
-    await user_repo.create_credential(auth_user_id=auth_user_id, email="admin-only@example.com", password_hash="hashed:Secure1!", is_admin=True, verified=True)
+async def test_verify_rejects_invalid_token():
+    service, *_rest, mailer, _store = _build_service()
+    await _request_and_get_token(service, mailer, "jay@example.com")
 
     with pytest.raises(UnauthorizedException):
-        await service.login(AppLoginCommand(email="admin-only@example.com", password="Secure1!"))
+        await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token="not-the-token"))
+
+
+@pytest.mark.asyncio
+async def test_verify_rejects_expired_or_consumed_token():
+    service, *_rest, mailer, _store = _build_service()
+    token = await _request_and_get_token(service, mailer, "jay@example.com")
+    await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token=token))
+
+    with pytest.raises(UnauthorizedException):
+        await service.verify_magic_link(AppMagicLinkVerifyCommand(email="jay@example.com", token=token))
+
+
+@pytest.mark.asyncio
+async def test_verify_rejects_credential_without_end_user():
+    service, user_repo, end_user_repo, _prefs, mailer, _store = _build_service()
+    auth_user_id = uuid4()
+    await user_repo.create_credential(auth_user_id=auth_user_id, email="admin-only@example.com", password_hash="hashed:Secure1!", is_admin=True, verified=True)
+    token = await _request_and_get_token(service, mailer, "admin-only@example.com")
+
+    with pytest.raises(UnauthorizedException):
+        await service.verify_magic_link(AppMagicLinkVerifyCommand(email="admin-only@example.com", token=token))
     assert end_user_repo.by_auth_user_id == {}
 
 
 @pytest.mark.asyncio
-async def test_register_rejects_weak_password():
-    service, *_ = _build_service()
+async def test_request_magic_link_does_not_reveal_whether_email_exists():
+    service, *_rest, mailer, _store = _build_service()
 
-    with pytest.raises(BadRequestException):
-        await service.register(AppRegisterCommand(email="jay@example.com", password="short", display_name="Jay"))
+    unknown = await service.request_magic_link(AppMagicLinkRequestCommand(email="unknown@example.com"))
+    known_prep = await _request_and_get_token(service, mailer, "new@example.com")
+    await service.verify_magic_link(AppMagicLinkVerifyCommand(email="new@example.com", token=known_prep))
+    known = await service.request_magic_link(AppMagicLinkRequestCommand(email="new@example.com"))
+
+    assert unknown.message == known.message

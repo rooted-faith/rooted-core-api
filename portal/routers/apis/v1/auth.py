@@ -6,28 +6,43 @@ from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, status
 
 from portal.application.auth.app_auth_service import AppAuthService
-from portal.application.auth.commands import AppLoginCommand, AppRegisterCommand, LogoutCommand, RefreshTokenCommand
-from portal.application.auth.mappers import member_login_result_to_api, token_result_to_api
+from portal.application.auth.commands import AppMagicLinkRequestCommand, AppMagicLinkVerifyCommand, LogoutCommand, RefreshTokenCommand
+from portal.application.auth.mappers import magic_link_request_result_to_api, member_login_result_to_api, token_result_to_api
 from portal.application.auth.refresh_token_service import RefreshTokenService
 from portal.container import Container
+from portal.libs.depends.rate_limiters import WRITE_RATE_LIMITERS
 from portal.routers.auth_router import AuthRouter
-from portal.serializers.apis.v1.auth import MemberLoginRequest, MemberLoginResponse, MemberRegisterRequest
+from portal.serializers.apis.v1.auth import MemberLoginResponse, MemberMagicLinkRequest, MemberMagicLinkRequestResponse, MemberMagicLinkVerifyRequest
 from portal.serializers.mixins import LogoutRequest, LogoutResponse, RefreshTokenRequest, TokenResponse
 
 router: AuthRouter = AuthRouter()
 
 
-@router.post("/register", response_model=MemberLoginResponse, response_model_by_alias=True, status_code=status.HTTP_200_OK, require_auth=False)
+@router.post(
+    "/magic-link",
+    response_model=MemberMagicLinkRequestResponse,
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK,
+    require_auth=False,
+    dependencies=[*WRITE_RATE_LIMITERS],
+)
 @inject
-async def app_register(body: MemberRegisterRequest, app_auth_service: AppAuthService = Depends(Provide[Container.app_auth_service])):
-    result = await app_auth_service.register(AppRegisterCommand(email=body.email, password=body.password, display_name=body.display_name))
-    return member_login_result_to_api(result)
+async def app_request_magic_link(body: MemberMagicLinkRequest, app_auth_service: AppAuthService = Depends(Provide[Container.app_auth_service])):
+    result = await app_auth_service.request_magic_link(AppMagicLinkRequestCommand(email=body.email))
+    return magic_link_request_result_to_api(result)
 
 
-@router.post("/login", response_model=MemberLoginResponse, response_model_by_alias=True, status_code=status.HTTP_200_OK, require_auth=False)
+@router.post(
+    "/verify",
+    response_model=MemberLoginResponse,
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK,
+    require_auth=False,
+    dependencies=[*WRITE_RATE_LIMITERS],
+)
 @inject
-async def app_login(body: MemberLoginRequest, app_auth_service: AppAuthService = Depends(Provide[Container.app_auth_service])):
-    result = await app_auth_service.login(AppLoginCommand(email=body.email, password=body.password))
+async def app_verify_magic_link(body: MemberMagicLinkVerifyRequest, app_auth_service: AppAuthService = Depends(Provide[Container.app_auth_service])):
+    result = await app_auth_service.verify_magic_link(AppMagicLinkVerifyCommand(email=body.email, token=body.token))
     return member_login_result_to_api(result)
 
 

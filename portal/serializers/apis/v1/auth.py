@@ -12,19 +12,23 @@ from portal.domain.common.mixins import UUIDModel
 from portal.serializers.mixins import LoginResponse, TokenResponse
 
 
-class MemberRegisterRequest(BaseModel):
-    """End user password registration body."""
+class MemberMagicLinkRequest(BaseModel):
+    """Request a passwordless magic-link email."""
 
     email: str = Field(..., description="End user email")
-    password: str = Field(..., description="End user password")
-    display_name: str = Field(..., description="Display name for Preferences")
 
 
-class MemberLoginRequest(BaseModel):
-    """End user password login body."""
+class MemberMagicLinkVerifyRequest(BaseModel):
+    """Verify magic-link token and sign in."""
 
     email: str = Field(..., description="End user email")
-    password: str = Field(..., description="End user password")
+    token: str = Field(..., description="One-time magic-link token")
+
+
+class MemberMagicLinkRequestResponse(BaseModel):
+    """Anti-enumeration acknowledgement."""
+
+    message: str = Field(..., description="Generic success message")
 
 
 class MemberInfo(UUIDModel):
@@ -40,6 +44,6 @@ class MemberInfo(UUIDModel):
 
 
 class MemberLoginResponse(LoginResponse):
-    """Member login / register response."""
+    """Member login / verify response."""
 
     member: MemberInfo = Field(..., description="End user info (id is app.user.id)")

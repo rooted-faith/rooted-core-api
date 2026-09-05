@@ -56,3 +56,19 @@ class UserRepositoryPort(Protocol):
     ) -> UUID:
         """Insert auth.user only (no AuthUserProfile, no app.user). password_hash may be null for passwordless End users."""
         ...
+
+
+class MagicLinkTokenPort(Protocol):
+    """Ephemeral one-time magic-link tokens (hashed at rest)."""
+
+    async def store(self, email: str, token_hash: str, ttl_seconds: int) -> None: ...
+
+    async def consume(self, email: str, token_hash: str) -> bool:
+        """Return True and invalidate when the hash matches a live token for email."""
+        ...
+
+
+class MagicLinkMailerPort(Protocol):
+    """Deliver the plain magic-link token out-of-band (email)."""
+
+    async def send_magic_link(self, email: str, token: str) -> None: ...
