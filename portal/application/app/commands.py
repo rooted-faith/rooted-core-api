@@ -17,7 +17,7 @@ class ProvisionIdentityCommand(BaseModel):
     """
 
     email: str = Field(...)
-    password: str = Field(...)
+    password: Optional[str] = Field(default=None, description="Required for Admin/password paths; null for passwordless End users")
     display_name: Optional[str] = Field(default=None)
     create_end_user: bool = Field(default=True)
     is_admin: bool = Field(default=False)

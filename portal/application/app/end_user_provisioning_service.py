@@ -3,6 +3,7 @@ Provision End user identity separate from auth credentials (ADR 0004).
 """
 
 import uuid
+from typing import Optional
 
 from portal.application.app.commands import ProvisionIdentityCommand
 from portal.application.app.results import ProvisionIdentityResult
@@ -18,6 +19,7 @@ class EndUserProvisioningService:
     """
     App signup creates auth.user + app.user + Preferences together.
     Admin-only provisioning creates the credential without app.user.
+    Password may be omitted for passwordless (magic-link) End users.
     """
 
     def __init__(
@@ -32,20 +34,32 @@ class EndUserProvisioningService:
         self._preferences_repository = preferences_repository
         self._password_provider = password_provider
 
+    @staticmethod
+    def _default_display_name(email: str, display_name: Optional[str]) -> str:
+        if display_name:
+            return display_name
+        local_part = email.strip().split("@", 1)[0]
+        return local_part or email
+
     @distributed_trace()
     async def provision(self, command: ProvisionIdentityCommand) -> ProvisionIdentityResult:
-        if not self._password_provider.validate_password(command.password):
-            raise BadRequestException(detail="Password is not valid")
-        if command.create_end_user and not command.display_name:
-            raise BadRequestException(detail="display_name is required when creating an End user")
+        password_hash: Optional[str] = None
+        if command.password is not None:
+            if not self._password_provider.validate_password(command.password):
+                raise BadRequestException(detail="Password is not valid")
+            password_hash = self._password_provider.hash_password(command.password)
+        elif not command.create_end_user:
+            raise BadRequestException(detail="Password is required for admin credentials")
+
+        email = command.email.strip().lower()
+        display_name = self._default_display_name(email, command.display_name)
 
         auth_user_id = uuid.uuid4()
-        password_hash = self._password_provider.hash_password(command.password)
-        # Password signup verifies the credential for app use; email magic-link
-        # verification is a separate channel (ADR 0003). Admin-only rows stay unverified.
+        # Magic-link verify and password signup both mark verified for app use;
+        # admin-only rows stay unverified until an admin path confirms them.
         await self._user_repository.create_credential(
             auth_user_id=auth_user_id,
-            email=command.email.strip().lower(),
+            email=email,
             password_hash=password_hash,
             is_admin=command.is_admin,
             is_superuser=command.is_superuser,
@@ -61,7 +75,7 @@ class EndUserProvisioningService:
             UserPreferences(
                 id=uuid.uuid4(),
                 user_id=end_user_id,
-                display_name=command.display_name,
+                display_name=display_name,
                 locale=command.locale,
                 theme=command.theme,
                 font_scale=command.font_scale,

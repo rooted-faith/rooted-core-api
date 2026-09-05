@@ -6,6 +6,7 @@ credential path that skips app.user.
 """
 
 from datetime import time
+from typing import Optional
 from uuid import UUID, uuid4
 
 import pytest
@@ -28,7 +29,7 @@ class StubUserRepository:
         self.created: list[dict] = []
 
     async def create_credential(
-        self, *, auth_user_id: UUID, email: str, password_hash: str, is_admin: bool, is_superuser: bool = False, verified: bool = False
+        self, *, auth_user_id: UUID, email: str, password_hash: Optional[str], is_admin: bool, is_superuser: bool = False, verified: bool = False
     ) -> UUID:
         self.created.append(
             {
@@ -146,3 +147,16 @@ async def test_dual_capacity_creates_end_user_with_admin_credential():
     assert result.end_user_id != result.auth_user_id
     assert len(end_user_repo.created) == 1
     assert len(prefs_repo.created) == 1
+
+
+@pytest.mark.asyncio
+async def test_passwordless_provision_creates_credential_without_password_hash():
+    service, user_repo, end_user_repo, prefs_repo = _build_service()
+    command = ProvisionIdentityCommand(email="member@example.com", password=None, create_end_user=True)
+
+    result = await service.provision(command)
+
+    assert user_repo.created[0]["password_hash"] is None
+    assert user_repo.created[0]["verified"] is True
+    assert result.end_user_id is not None
+    assert prefs_repo.created[0].display_name == "member"

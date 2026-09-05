@@ -137,3 +137,9 @@ class MemberLoginResult(BaseModel):
 
     member: MemberProfileResult = Field(..., description="Member profile")
     token: TokenResult = Field(..., description="Issued tokens")
+
+
+class MagicLinkRequestResult(BaseModel):
+    """Anti-enumeration acknowledgement after requesting a magic link."""
+
+    message: str = Field(..., description="Generic success message")

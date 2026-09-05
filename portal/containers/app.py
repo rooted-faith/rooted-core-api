@@ -9,6 +9,8 @@ from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.bible.bible_service import BibleService
 from portal.config import settings as app_settings
 from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
+from portal.infrastructure.cache.magic_link_token_cache import MagicLinkTokenCache
+from portal.infrastructure.mail.magic_link_mailer import MagicLinkMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
@@ -33,6 +35,9 @@ class AppContainer(containers.DeclarativeContainer):
         password_provider=core.password_provider,
     )
 
+    magic_link_token_store = providers.Factory(MagicLinkTokenCache, redis_client=core.redis_client)
+    magic_link_mailer = providers.Singleton(MagicLinkMailer)
+
     member_web_app_registry = providers.Singleton(lambda: MemberWebAppRegistry(parse_member_web_apps(app_settings.MEMBER_WEB_APPS)))
     app_auth_service = providers.Factory(
         AppAuthService,
@@ -40,7 +45,8 @@ class AppContainer(containers.DeclarativeContainer):
         user_repository=user_repository,
         end_user_repository=end_user_repository,
         preferences_repository=preferences_repository,
-        password_provider=core.password_provider,
+        magic_link_token_store=magic_link_token_store,
+        magic_link_mailer=magic_link_mailer,
         jwt_provider=core.jwt_provider,
         refresh_token_provider=core.refresh_token_provider,
         member_refresh_app_binding_provider=core.member_refresh_app_binding_provider,

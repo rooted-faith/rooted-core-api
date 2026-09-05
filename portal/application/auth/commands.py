@@ -14,19 +14,17 @@ class LoginCommand(BaseModel):
     password: str = Field(..., description="Admin password")
 
 
-class AppRegisterCommand(BaseModel):
-    """End user password registration command."""
+class AppMagicLinkRequestCommand(BaseModel):
+    """Request a passwordless magic-link email."""
 
     email: str = Field(..., description="End user email")
-    password: str = Field(..., description="End user password")
-    display_name: str = Field(..., description="Display name stored on Preferences")
 
 
-class AppLoginCommand(BaseModel):
-    """End user password login command."""
+class AppMagicLinkVerifyCommand(BaseModel):
+    """Verify a magic-link token and sign in (or provision) the End user."""
 
     email: str = Field(..., description="End user email")
-    password: str = Field(..., description="End user password")
+    token: str = Field(..., description="One-time magic-link token")
 
 
 class LoginWithoutValidateCommand(BaseModel):

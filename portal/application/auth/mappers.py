@@ -2,9 +2,17 @@
 Map auth application results to API serializers.
 """
 
-from portal.application.auth.results import AdminProfileResult, LoginResult, MemberLoginResult, MemberProfileResult, TokenResult, UserSensitive
+from portal.application.auth.results import (
+    AdminProfileResult,
+    LoginResult,
+    MagicLinkRequestResult,
+    MemberLoginResult,
+    MemberProfileResult,
+    TokenResult,
+    UserSensitive,
+)
 from portal.serializers.admin.v1.auth import AdminInfo, AdminLoginResponse
-from portal.serializers.apis.v1.auth import MemberInfo, MemberLoginResponse
+from portal.serializers.apis.v1.auth import MemberInfo, MemberLoginResponse, MemberMagicLinkRequestResponse
 from portal.serializers.mixins import TokenResponse
 
 
@@ -81,3 +89,12 @@ def member_login_result_to_api(result: MemberLoginResult) -> MemberLoginResponse
     :return:
     """
     return MemberLoginResponse(member=member_profile_result_to_api(result.member), token=token_result_to_api(result.token))
+
+
+def magic_link_request_result_to_api(result: MagicLinkRequestResult) -> MemberMagicLinkRequestResponse:
+    """
+    Map magic-link request acknowledgement to API response.
+    :param result:
+    :return:
+    """
+    return MemberMagicLinkRequestResponse(message=result.message)
