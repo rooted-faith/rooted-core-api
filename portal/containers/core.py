@@ -7,6 +7,7 @@ from dependency_injector import containers, providers
 from portal.config import settings
 from portal.libs.database import PostgresConnection, RedisPool, Session
 from portal.libs.database.session_proxy import SessionProxy
+from portal.providers.firebase_push_gateway import FirebasePushGateway
 from portal.providers.google_id_token_verifier import GoogleIdTokenVerifier
 from portal.providers.jwt_provider import JWTProvider
 from portal.providers.member_refresh_app_binding_provider import MemberRefreshAppBindingProvider
@@ -33,3 +34,4 @@ class CoreContainer(containers.DeclarativeContainer):
     password_provider = providers.Singleton(PasswordProvider)
     refresh_token_provider = providers.Factory(RefreshTokenProvider, session=request_session)
     google_id_token_verifier = providers.Singleton(GoogleIdTokenVerifier)
+    push_gateway = providers.Singleton(FirebasePushGateway, credentials_json=config.FIREBASE_CREDENTIALS_JSON)
