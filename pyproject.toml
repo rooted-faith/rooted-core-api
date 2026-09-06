@@ -45,6 +45,7 @@ dependencies = [
     "aiosmtplib",
     "jinja2",
     "click",
+    "firebase-admin>=7.5.0",
 ]
 
 [project.scripts]

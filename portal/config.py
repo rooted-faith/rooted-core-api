@@ -133,6 +133,9 @@ class Configuration(BaseSettings):
     # [Rate Limiting]
     RATE_LIMITERS_CONFIG: RateLimitersConfig | None = None
 
+    # [Push notifications — Firebase Cloud Messaging, ADR 0007. Service-account JSON, not a file path.]
+    FIREBASE_CREDENTIALS_JSON: str | None = os.getenv(key="FIREBASE_CREDENTIALS_JSON")
+
     # [Sentry]
     SENTRY_URL: str | None = os.getenv(key="SENTRY_URL")
 

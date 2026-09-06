@@ -15,6 +15,7 @@ from portal.infrastructure.mail.magic_link_mailer import MagicLinkMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
 from portal.infrastructure.persistence.repositories.push.device_repository import DeviceRepository
+from portal.infrastructure.persistence.repositories.push.notification_repository import NotificationRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
 
 
@@ -31,7 +32,14 @@ class AppContainer(containers.DeclarativeContainer):
     preferences_repository = providers.Factory(PreferencesRepository, session=core.request_session)
 
     device_repository = providers.Factory(DeviceRepository, session=core.request_session)
-    push_service = providers.Factory(PushService, device_repository=device_repository, end_user_repository=end_user_repository)
+    notification_repository = providers.Factory(NotificationRepository, session=core.request_session)
+    push_service = providers.Factory(
+        PushService,
+        device_repository=device_repository,
+        end_user_repository=end_user_repository,
+        notification_repository=notification_repository,
+        push_gateway=core.push_gateway,
+    )
     end_user_provisioning_service = providers.Factory(
         EndUserProvisioningService,
         user_repository=user_repository,
