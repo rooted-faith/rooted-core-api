@@ -5,6 +5,7 @@ Admin bounded context application services.
 from dependency_injector import containers, providers
 
 from portal.application.audit.rbac_audit_service import RbacAuditService
+from portal.application.auth.admin_google_auth_service import AdminGoogleAuthService
 from portal.application.auth.admin_user_service import AdminUserService
 from portal.application.auth.login_service import LoginService
 from portal.application.auth.refresh_token_service import RefreshTokenService
@@ -83,6 +84,9 @@ class AdminContainer(containers.DeclarativeContainer):
         role_service=role_service,
         permission_service=permission_service,
         member_refresh_app_binding_provider=core.member_refresh_app_binding_provider,
+    )
+    admin_google_auth_service = providers.Factory(
+        AdminGoogleAuthService, user_repository=user_repository, google_id_token_verifier=core.google_id_token_verifier, login_service=login_service
     )
     refresh_token_service = providers.Factory(
         RefreshTokenService,

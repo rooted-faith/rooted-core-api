@@ -7,14 +7,15 @@ import uuid
 from dependency_injector.wiring import Provide, inject
 from fastapi import Cookie, Depends, Response, status
 
-from portal.application.auth.commands import LoginCommand, LoginWithoutValidateCommand, LogoutCommand, RefreshTokenCommand
+from portal.application.auth.admin_google_auth_service import AdminGoogleAuthService
+from portal.application.auth.commands import AdminGoogleLoginCommand, LoginCommand, LoginWithoutValidateCommand, LogoutCommand, RefreshTokenCommand
 from portal.application.auth.login_service import LoginService
 from portal.application.auth.mappers import admin_profile_result_to_api, login_result_to_api, token_result_to_api
 from portal.application.auth.refresh_token_service import RefreshTokenService
 from portal.config import settings
 from portal.container import Container
 from portal.routers.auth_router import AuthRouter
-from portal.serializers.admin.v1.auth import AdminInfo, AdminLoginRequest, AdminLoginResponse
+from portal.serializers.admin.v1.auth import AdminGoogleLoginRequest, AdminInfo, AdminLoginRequest, AdminLoginResponse
 from portal.serializers.mixins import LogoutRequest, LogoutResponse, RefreshTokenRequest, TokenResponse
 
 router: AuthRouter = AuthRouter(is_admin=True)
@@ -48,6 +49,15 @@ if settings.is_dev:
 @inject
 async def admin_login(body: AdminLoginRequest, login_service: LoginService = Depends(Provide[Container.login_service])):
     result = await login_service.login_with_password(LoginCommand(email=body.email, password=body.password))
+    return login_result_to_api(result)
+
+
+@router.post("/google", response_model=AdminLoginResponse, response_model_by_alias=True, require_auth=False)
+@inject
+async def admin_google_login(
+    body: AdminGoogleLoginRequest, admin_google_auth_service: AdminGoogleAuthService = Depends(Provide[Container.admin_google_auth_service])
+):
+    result = await admin_google_auth_service.login_with_google(AdminGoogleLoginCommand(id_token=body.id_token))
     return login_result_to_api(result)
 
 

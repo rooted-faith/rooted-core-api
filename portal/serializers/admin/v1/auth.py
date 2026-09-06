@@ -55,3 +55,9 @@ class MicrosoftIdTokenRequest(BaseModel):
     """Microsoft Entra ID token exchange body"""
 
     id_token: str = Field(..., description="Microsoft ID token")
+
+
+class AdminGoogleLoginRequest(BaseModel):
+    """Admin Google ID-token sign-in request body (ADR 0006)"""
+
+    id_token: str = Field(..., description="Google ID token from Google Identity Services")
