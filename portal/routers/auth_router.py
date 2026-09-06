@@ -28,6 +28,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = False,
         require_auth: Optional[bool] = True,
+        optional_auth: Optional[bool] = False,
         is_admin: Optional[bool] = False,
         allow_superuser: Optional[bool] = False,
         *args,
@@ -41,6 +42,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param args:
@@ -49,6 +51,7 @@ class AuthRouter(APIRouter):
         self._permissions = permissions
         self._require_all = require_all
         self._require_auth = require_auth
+        self._optional_auth = optional_auth
         self._is_admin = is_admin
         self._allow_superuser = allow_superuser
 
@@ -122,6 +125,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = None,
         require_auth: Optional[bool] = None,
+        optional_auth: Optional[bool] = None,
         is_admin: Optional[bool] = None,
         allow_superuser: Optional[bool] = None,
         **kwargs,
@@ -132,6 +136,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param kwargs:
@@ -140,11 +145,12 @@ class AuthRouter(APIRouter):
 
         def decorator(func: Callable) -> Callable:
             auth_config = None
-            if require_auth or self._require_auth or permissions or self._permissions:
+            if require_auth or self._require_auth or optional_auth or self._optional_auth or permissions or self._permissions:
                 auth_config = AuthConfig(
                     permission_codes=permissions if permissions is not None else self._permissions,
                     require_all=require_all if require_all is not None else self._require_all,
                     require_auth=require_auth if require_auth is not None else self._require_auth,
+                    optional_auth=optional_auth if optional_auth is not None else self._optional_auth,
                     is_admin=is_admin if is_admin is not None else self._is_admin,
                     allow_superuser=allow_superuser if allow_superuser is not None else self._allow_superuser,
                 )
@@ -159,6 +165,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = None,
         require_auth: Optional[bool] = None,
+        optional_auth: Optional[bool] = None,
         is_admin: Optional[bool] = None,
         allow_superuser: Optional[bool] = None,
         **kwargs,
@@ -169,6 +176,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param kwargs:
@@ -177,11 +185,12 @@ class AuthRouter(APIRouter):
 
         def decorator(func: Callable) -> Callable:
             auth_config = None
-            if require_auth or self._require_auth or permissions or self._permissions:
+            if require_auth or self._require_auth or optional_auth or self._optional_auth or permissions or self._permissions:
                 auth_config = AuthConfig(
                     permission_codes=permissions if permissions is not None else self._permissions,
                     require_all=require_all if require_all is not None else self._require_all,
                     require_auth=require_auth if require_auth is not None else self._require_auth,
+                    optional_auth=optional_auth if optional_auth is not None else self._optional_auth,
                     is_admin=is_admin if is_admin is not None else self._is_admin,
                     allow_superuser=allow_superuser if allow_superuser is not None else self._allow_superuser,
                 )
@@ -196,6 +205,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = None,
         require_auth: Optional[bool] = None,
+        optional_auth: Optional[bool] = None,
         is_admin: Optional[bool] = None,
         allow_superuser: Optional[bool] = None,
         **kwargs,
@@ -206,6 +216,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param kwargs:
@@ -214,11 +225,12 @@ class AuthRouter(APIRouter):
 
         def decorator(func: Callable) -> Callable:
             auth_config = None
-            if require_auth or self._require_auth or permissions or self._permissions:
+            if require_auth or self._require_auth or optional_auth or self._optional_auth or permissions or self._permissions:
                 auth_config = AuthConfig(
                     permission_codes=permissions if permissions is not None else self._permissions,
                     require_all=require_all if require_all is not None else self._require_all,
                     require_auth=require_auth if require_auth is not None else self._require_auth,
+                    optional_auth=optional_auth if optional_auth is not None else self._optional_auth,
                     is_admin=is_admin if is_admin is not None else self._is_admin,
                     allow_superuser=allow_superuser if allow_superuser is not None else self._allow_superuser,
                 )
@@ -233,6 +245,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = None,
         require_auth: Optional[bool] = None,
+        optional_auth: Optional[bool] = None,
         is_admin: Optional[bool] = None,
         allow_superuser: Optional[bool] = None,
         **kwargs,
@@ -243,6 +256,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param kwargs:
@@ -251,11 +265,12 @@ class AuthRouter(APIRouter):
 
         def decorator(func: Callable) -> Callable:
             auth_config = None
-            if require_auth or self._require_auth or permissions or self._permissions:
+            if require_auth or self._require_auth or optional_auth or self._optional_auth or permissions or self._permissions:
                 auth_config = AuthConfig(
                     permission_codes=permissions if permissions is not None else self._permissions,
                     require_all=require_all if require_all is not None else self._require_all,
                     require_auth=require_auth if require_auth is not None else self._require_auth,
+                    optional_auth=optional_auth if optional_auth is not None else self._optional_auth,
                     is_admin=is_admin if is_admin is not None else self._is_admin,
                     allow_superuser=allow_superuser if allow_superuser is not None else self._allow_superuser,
                 )
@@ -270,6 +285,7 @@ class AuthRouter(APIRouter):
         permissions: Optional[List[str]] = None,
         require_all: Optional[bool] = None,
         require_auth: Optional[bool] = None,
+        optional_auth: Optional[bool] = None,
         is_admin: Optional[bool] = None,
         allow_superuser: Optional[bool] = None,
         **kwargs,
@@ -280,6 +296,7 @@ class AuthRouter(APIRouter):
         :param permissions:
         :param require_all:
         :param require_auth:
+        :param optional_auth: verify Authorization header when present, else proceed unauthenticated
         :param is_admin:
         :param allow_superuser:
         :param kwargs:
@@ -288,11 +305,12 @@ class AuthRouter(APIRouter):
 
         def decorator(func: Callable) -> Callable:
             auth_config = None
-            if require_auth or self._require_auth or permissions or self._permissions:
+            if require_auth or self._require_auth or optional_auth or self._optional_auth or permissions or self._permissions:
                 auth_config = AuthConfig(
                     permission_codes=permissions if permissions is not None else self._permissions,
                     require_all=require_all if require_all is not None else self._require_all,
                     require_auth=require_auth if require_auth is not None else self._require_auth,
+                    optional_auth=optional_auth if optional_auth is not None else self._optional_auth,
                     is_admin=is_admin if is_admin is not None else self._is_admin,
                     allow_superuser=allow_superuser if allow_superuser is not None else self._allow_superuser,
                 )

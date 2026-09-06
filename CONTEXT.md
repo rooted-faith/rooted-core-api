@@ -144,6 +144,22 @@ Client ↔ server reconciliation for v1 accounts — not a second product surfac
 
 ---
 
+### Push notifications
+
+**Device**:
+An app installation instance identified by a client-generated `device_key`, holding at most one push token and platform, and optionally linked to the **End user** currently signed in on it (nullable — overwritten on sign-in, cleared on sign-out). Exists independently of authentication: registered on first app launch, before any account exists, so an anonymous install can hold a Device row with no End user attached.
+_Avoid_: conflating with **End user** identity; assuming a Device belongs permanently to one account (a shared or re-logged-in device may change hands); Device Token (the token is a field on Device, not a separate concept)
+
+**Notification**:
+A single push-worthy event addressed to one **End user** (e.g. someone prayed for their prayer request). Delivered by fanning out to every active **Device** linked to that End user at send time.
+_Avoid_: conflating with the client-local daily reminder (`Preferences.reminder_enabled`/`reminder_time`), which never touches this concept — that reminder fires from an on-device schedule, not a server Notification row
+
+**Notification delivery**:
+One attempt to deliver a **Notification** to one specific **Device** — records success/failure and error detail. The basis for deactivating a Device whose token has permanently failed, so it stops being targeted by future Notifications.
+_Avoid_: a per-End-user read/unread inbox (not yet modeled — future work)
+
+---
+
 ## Version map (API relevance)
 
 | Phase | Backend focus                                      |
