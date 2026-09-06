@@ -36,6 +36,7 @@ class RootContainer(containers.DeclarativeContainer):
     user_read_service = admin.user_read_service
     admin_user_service = admin.admin_user_service
     login_service = admin.login_service
+    admin_google_auth_service = admin.admin_google_auth_service
     refresh_token_service = admin.refresh_token_service
     member_web_app_registry = admin.member_web_app_registry
     locale_service = admin.locale_service

@@ -4,7 +4,7 @@
 
 Accepted (2026-09-04)
 
-Supersedes ADR 0004’s retention of NewLife-shaped `auth.user_third_party` as the forward model. Does **not** supersede ADR 0003: enabling Apple/Google (or any IdP) sign-in still needs its own product/implementation ADR; this decision only reshapes durable identity storage.
+Supersedes ADR 0004’s retention of NewLife-shaped `auth.user_third_party` as the forward model. Does **not** supersede ADR 0003. This decision only reshapes durable identity storage. **Admin Google** HTTP is ADR 0006; **End-user** Apple/Google HTTP still need a future ADR.
 
 ## Context
 
@@ -26,7 +26,7 @@ We need a table design that can hold most third-party sign-in bindings before th
 
 4. **Auth credential shape**: `email` is **NOT NULL**; drop `phone_number`. No email-less `auth.user` rows. Account-merge when the same email arrives via a new IdP is **out of scope** (no pending-merge table); decide in a future sign-in ADR.
 
-5. **Out of scope here**: OAuth/OIDC HTTP flows, token exchange, auto-link-by-email product rules, and Microsoft / church SSO (still ADR 0003 + a future ADR if needed).
+5. **Out of scope here**: OAuth/OIDC HTTP flows, token exchange, auto-link-by-email product rules, and Microsoft / church SSO. Admin Google HTTP + auto-link-by-email for admin is **ADR 0006**; End-user IdP HTTP remains a future ADR.
 
 ## Considered options
 
@@ -44,5 +44,5 @@ We need a table design that can hold most third-party sign-in bindings before th
 - ORM and human-owned Alembic should introduce `identity_provider` / `identity_link` and adjust `auth.user` (`email` NOT NULL, drop `phone_number`); remove or stop using `user_third_party` and token columns.
 - Repository ports that upsert by `provider_uid` / UUID tenant must move to `provider_subject` + nullable `provider_tenant`.
 - `ThirdPartyProvider` / Microsoft leftovers stay dead until a sign-in ADR; catalog codes are the source of truth for allowed providers.
-- Implementing Apple or Google login is still a separate ADR and must not be inferred from this schema alone.
+- Implementing sign-in HTTP must not be inferred from this schema alone: Admin Google → ADR 0006; End-user Apple/Google → future ADR.
 - Human Alembic steps: see `docs/migrations/0005-identity-link-alembic-checklist.md`.

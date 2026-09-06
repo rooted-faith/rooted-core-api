@@ -6,6 +6,7 @@ from typing import Any, Optional, Protocol
 from uuid import UUID
 
 from portal.application.auth.results import UserDetail, UserSensitive
+from portal.domain.auth.entities import GoogleIdentityClaims
 
 
 class UserRepositoryPort(Protocol):
@@ -32,6 +33,8 @@ class UserRepositoryPort(Protocol):
     ) -> None: ...
 
     async def soft_delete_identity_link(self, user_id: UUID, provider: str) -> None: ...
+
+    async def identity_provider_is_active(self, code: str) -> bool: ...
 
     async def create_directory_user(
         self,
@@ -72,3 +75,11 @@ class MagicLinkMailerPort(Protocol):
     """Deliver the plain magic-link token out-of-band (email)."""
 
     async def send_magic_link(self, email: str, token: str) -> None: ...
+
+
+class GoogleIdTokenVerifierPort(Protocol):
+    """Verify a Google-issued ID token (signature, issuer, expiry, audience) per ADR 0006."""
+
+    async def verify(self, id_token: str, audiences: list[str]) -> Optional[GoogleIdentityClaims]:
+        """Return verified claims, or None when the token is invalid, expired, or not issued for one of `audiences`."""
+        ...

@@ -7,6 +7,7 @@ from dependency_injector import containers, providers
 from portal.config import settings
 from portal.libs.database import PostgresConnection, RedisPool, Session
 from portal.libs.database.session_proxy import SessionProxy
+from portal.providers.google_id_token_verifier import GoogleIdTokenVerifier
 from portal.providers.jwt_provider import JWTProvider
 from portal.providers.member_refresh_app_binding_provider import MemberRefreshAppBindingProvider
 from portal.providers.password_provider import PasswordProvider
@@ -31,3 +32,4 @@ class CoreContainer(containers.DeclarativeContainer):
     jwt_provider = providers.Singleton(JWTProvider, token_blacklist_provider=token_blacklist_provider)
     password_provider = providers.Singleton(PasswordProvider)
     refresh_token_provider = providers.Factory(RefreshTokenProvider, session=request_session)
+    google_id_token_verifier = providers.Singleton(GoogleIdTokenVerifier)

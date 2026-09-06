@@ -45,6 +45,12 @@ class MicrosoftLoginCommand(BaseModel):
     id_token: str = Field(..., description="Microsoft ID token")
 
 
+class AdminGoogleLoginCommand(BaseModel):
+    """Admin Google ID-token sign-in command (ADR 0006)."""
+
+    id_token: str = Field(..., description="Google ID token from Google Identity Services")
+
+
 class LogoutCommand(BaseModel):
     """Logout command."""
 

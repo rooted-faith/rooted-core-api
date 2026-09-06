@@ -120,6 +120,9 @@ class Configuration(BaseSettings):
     # [App magic link]
     MAGIC_LINK_TOKEN_EXPIRE_MINUTES: int = int(os.getenv(key="MAGIC_LINK_TOKEN_EXPIRE_MINUTES", default="15"))
 
+    # [Admin Google ID-token sign-in — ADR 0006. Comma-separated Client ID allowlist; empty disables Google admin sign-in.]
+    GOOGLE_ADMIN_CLIENT_IDS: str = os.getenv(key="GOOGLE_ADMIN_CLIENT_IDS", default="")
+
     # [Member web apps — Origin -> app_code for /api/v1 auth]
     MEMBER_WEB_APPS: str = os.getenv(key="MEMBER_WEB_APPS", default="rooted-app|http://localhost:5174")
 
@@ -189,6 +192,10 @@ class Configuration(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.ENV.lower() not in ("prod", "stg")
+
+    @property
+    def google_admin_client_ids(self) -> list[str]:
+        return [client_id.strip() for client_id in self.GOOGLE_ADMIN_CLIENT_IDS.split(",") if client_id.strip()]
 
 
 @lru_cache

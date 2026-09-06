@@ -16,7 +16,7 @@ from portal.domain.auth.constants import AuthErrorCode
 from portal.exceptions.responses import ConflictErrorException
 from portal.libs.consts.enums import Gender
 from portal.libs.database import Session
-from portal.models import AuthIdentityLink, AuthUser, AuthUserProfile, AuthUserRole, SystemLocale
+from portal.models import AuthIdentityLink, AuthIdentityProvider, AuthUser, AuthUserProfile, AuthUserRole, SystemLocale
 
 
 class UserRepository:
@@ -478,6 +478,10 @@ class UserRepository:
             )
             .execute()
         )
+
+    async def identity_provider_is_active(self, code: str) -> bool:
+        is_active = await self._session.select(AuthIdentityProvider.is_active).where(AuthIdentityProvider.code == code).fetchval()
+        return bool(is_active)
 
     async def soft_delete_identity_link(self, user_id: UUID, provider: str) -> None:
         await (
