@@ -121,20 +121,20 @@ End-user settings and presentation defaults (display name, locale, theme, font s
 _Avoid_: Admin User profile fields, burying prefs inside fellowship or journal rows
 
 **Admin User**:
-Staff account using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from **shepherd** (group role) and from **End user**. May share the same auth credential as an End user when one person holds both capacities.
-_Avoid_: Operator, treating Membership role as admin
+Staff account using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from **shepherd** (group role) and from **End user**. May share the same auth credential as an End user when one person holds both capacities. Signs in with that **Auth credential** via password and/or an **Identity link**; an Identity-provider sign-in alone never creates an Admin User.
+_Avoid_: Operator, treating Membership role as admin, auto-provisioning staff from Google/Apple alone
 
 **Auth credential**:
 The sign-in subject in `auth.user`, always identified by a required email, with optional password and zero or more **Identity links**. An **End user** and an **Admin User** may share one credential; product data hangs off **End user**, not off this row. Phone number is not part of this credential.
 _Avoid_: Account (ambiguous), conflating with **End user** / `app.user`, phone-as-login-id
 
 **Identity provider**:
-A known external sign-in source (e.g. Google, Apple, Microsoft) registered in the auth catalog — not the person’s account at that vendor, and not an OAuth token.
-_Avoid_: Social network, OAuth client, treating a free-form string as the provider without a catalog entry
+A known external sign-in source (e.g. Google, Apple) registered in the auth catalog — not the person’s account at that vendor, and not an OAuth token. **Google** may be used for **Admin User** and (later) **End user** sign-in. **Apple** is only for **End user** sign-in — never for the admin console. Microsoft is not a Rooted Identity provider.
+_Avoid_: Social network, OAuth client, treating a free-form string as the provider without a catalog entry, Microsoft Entra as an in-scope provider, Apple sign-in for Admin Users
 
 **Identity link**:
-A durable binding from an **Identity provider** subject (and optional provider tenant) to one **Auth credential**. One credential may have many links across providers; at most one active link per credential per provider; each provider subject binds to at most one credential. Used to recognize the same person on later sign-ins — not an OAuth token store and not a product profile.
-_Avoid_: OAuth session, social account, third-party login (as the noun for the row), storing provider access/refresh tokens as the purpose of this concept
+A durable binding from an **Identity provider** subject (and optional provider tenant) to one **Auth credential**. One credential may have many links across providers; at most one active link per credential per provider; each provider subject binds to at most one credential. Used to recognize the same person on later sign-ins — not an OAuth token store and not a product profile. For **Google**, the provider subject is the account’s stable IdP user id (same across Rooted’s different OAuth clients such as admin console vs future app); Rooted does **not** create one Google Identity link per client application. For **End user** sign-in (future), a first successful Identity-provider sign-in may create the Auth credential and End user; for **Admin User** sign-in it only binds to an already-admin credential, and only via **Google** in the admin console. A first Admin Google success that matches by verified email creates the link; later sign-ins resolve primarily by provider subject.
+_Avoid_: OAuth session, social account, third-party login (as the noun for the row), storing provider access/refresh tokens as the purpose of this concept, matching Admin sign-in by email alone after a link exists, Admin Apple Identity links as a product path, one Google Identity link per OAuth client id
 
 **Report**:
 User flag on fellowship content (prayer, share, etc.) with reason code — feeds moderation queue in v1.
@@ -162,4 +162,4 @@ Client ↔ server reconciliation for v1 accounts — not a second product surfac
 | PRD | `rooted-docs/docs/product/prd.md` |
 | API spec | `rooted-docs/docs/backend/api-specification.md` |
 | Database design | `rooted-docs/docs/backend/database-design.md` |
-| ADRs | `docs/adr/` (auth identity storage: ADR 0005) |
+| ADRs | `docs/adr/` (identity storage: ADR 0005; Admin Google: ADR 0006) |
