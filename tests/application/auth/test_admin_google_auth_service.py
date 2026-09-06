@@ -245,3 +245,19 @@ async def test_rejects_inactive_admin_credential_and_does_not_link(monkeypatch: 
     with pytest.raises(UnauthorizedException):
         await service.login_with_google(AdminGoogleLoginCommand(id_token="token-1"))
     assert user_repo.link_calls == []
+
+
+@pytest.mark.asyncio
+async def test_rejects_linked_subject_whose_credential_is_no_longer_admin_eligible(monkeypatch: pytest.MonkeyPatch):
+    """A pre-existing Google link must fail the same generic way as every other rejection once its
+    credential is demoted/deactivated/unverified — not leak LoginService's distinct admin-portal message."""
+    service, user_repo, verifier = _build_service(monkeypatch)
+    admin = user_repo.seed_admin(email="admin@example.com")
+    verifier.register("token-1", GoogleIdentityClaims(subject="google-sub-1", email="admin@example.com", email_verified=True, audience="web-client-id"))
+    await service.login_with_google(AdminGoogleLoginCommand(id_token="token-1"))
+
+    admin.is_admin = False  # demoted after the link was created
+
+    with pytest.raises(UnauthorizedException) as exc_info:
+        await service.login_with_google(AdminGoogleLoginCommand(id_token="token-1"))
+    assert exc_info.value.detail == "Google sign-in failed"

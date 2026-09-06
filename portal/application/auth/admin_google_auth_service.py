@@ -4,7 +4,7 @@ Admin Google ID-token sign-in application service (ADR 0006).
 
 from portal.application.auth.commands import AdminGoogleLoginCommand
 from portal.application.auth.login_service import LoginService
-from portal.application.auth.results import LoginResult
+from portal.application.auth.results import LoginResult, UserSensitive
 from portal.config import settings
 from portal.domain.auth.ports import GoogleIdTokenVerifierPort, UserRepositoryPort
 from portal.exceptions.responses import UnauthorizedException
@@ -12,6 +12,10 @@ from portal.libs.tracing.distributed_trace import distributed_trace
 
 GOOGLE_PROVIDER_CODE = "google"
 GENERIC_FAILURE_DETAIL = "Google sign-in failed"
+
+
+def _is_admin_eligible(user: UserSensitive) -> bool:
+    return user.is_admin and user.verified and user.is_active
 
 
 class AdminGoogleAuthService:
@@ -40,12 +44,12 @@ class AdminGoogleAuthService:
         linked_user_id = await self._repository.get_user_id_by_identity_link(GOOGLE_PROVIDER_CODE, claims.subject)
         if linked_user_id:
             user = await self._repository.get_sensitive_by_id(linked_user_id)
-            if not user:
+            if not user or not _is_admin_eligible(user):
                 raise UnauthorizedException(detail=GENERIC_FAILURE_DETAIL)
             return await self._login_service.complete_admin_login(user)
 
         user = await self._repository.get_sensitive_by_email(claims.email)
-        if not user or not user.is_admin or not user.verified or not user.is_active:
+        if not user or not _is_admin_eligible(user):
             raise UnauthorizedException(detail=GENERIC_FAILURE_DETAIL)
 
         await self._repository.upsert_identity_link(user.id, GOOGLE_PROVIDER_CODE, claims.subject, additional_data={"email": claims.email})
