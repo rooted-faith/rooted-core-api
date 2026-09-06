@@ -8,6 +8,7 @@ import click
 
 from portal.application.cli.superuser_seed_service import SuperuserSeedService
 from portal.container import Container
+from portal.libs.logger import logger
 from portal.libs.shared import validator
 from portal.providers.password_provider import PasswordProvider
 
@@ -22,9 +23,10 @@ async def create_superuser(email: str, password: str, first_name: str, last_name
         service = SuperuserSeedService(session, PasswordProvider())
         return await service.run(email=email, password=password, first_name=first_name, last_name=last_name)
     except Exception as exc:
-        click.echo(f"Error creating superuser: {exc}")
         await session.rollback()
-        return None
+        click.echo(f"Error creating superuser: {exc}")
+        logger.exception(exc)
+        raise
     finally:
         await session.close()
 

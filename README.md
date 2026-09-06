@@ -58,6 +58,14 @@ uv run alembic revision --autogenerate -m "description"
 uv run alembic upgrade head
 ```
 
+#### Seed Bootstrap Data
+
+```bash
+# One-shot: seed locale, identity provider, legal document, system setting, and
+# RBAC data, then interactively prompt for and create a superuser
+uv run rooted-cli init-all
+```
+
 ### 5. Run the Application
 
 #### Development Environment

@@ -1040,12 +1040,13 @@ wheels = [
 [[package]]
 name = "rooted-core-api"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aiosmtplib" },
     { name = "asyncpg" },
     { name = "azure-storage-blob" },
     { name = "boto3" },
+    { name = "click" },
     { name = "cryptography" },
     { name = "dependency-injector" },
     { name = "email-validator" },
@@ -1078,7 +1079,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "alembic" },
-    { name = "click" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
@@ -1091,6 +1091,7 @@ requires-dist = [
     { name = "asyncpg" },
     { name = "azure-storage-blob" },
     { name = "boto3" },
+    { name = "click" },
     { name = "cryptography", specifier = ">=47,<48" },
     { name = "dependency-injector" },
     { name = "email-validator" },
@@ -1123,7 +1124,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "alembic" },
-    { name = "click" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
