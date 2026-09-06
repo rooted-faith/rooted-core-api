@@ -4,7 +4,7 @@ Authentication and Authorization Configuration
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class AuthConfig(BaseModel):
@@ -25,7 +25,16 @@ class AuthConfig(BaseModel):
 
     # Authentication configuration
     require_auth: bool = Field(default=True, description="Whether to require authentication (token verification)")
+    optional_auth: bool = Field(
+        default=False, description="When require_auth is False: verify Authorization header if present (401 on invalid/expired), else proceed unauthenticated"
+    )
     is_admin: bool = Field(default=False, description="Whether to use admin authentication (True) or user authentication (False)")
+
+    @model_validator(mode="after")
+    def _validate_auth_modes(self) -> "AuthConfig":
+        if self.require_auth and self.optional_auth:
+            raise ValueError("require_auth and optional_auth are mutually exclusive")
+        return self
 
     @field_validator("permission_codes")
     @classmethod

@@ -7,12 +7,14 @@ from dependency_injector import containers, providers
 from portal.application.app.end_user_provisioning_service import EndUserProvisioningService
 from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.bible.bible_service import BibleService
+from portal.application.push.push_service import PushService
 from portal.config import settings as app_settings
 from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
 from portal.infrastructure.cache.magic_link_token_cache import MagicLinkTokenCache
 from portal.infrastructure.mail.magic_link_mailer import MagicLinkMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
+from portal.infrastructure.persistence.repositories.push.device_repository import DeviceRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
 
 
@@ -23,6 +25,9 @@ class AppContainer(containers.DeclarativeContainer):
 
     bible_repository = providers.Factory(BibleRepository, session=core.request_session)
     bible_service = providers.Factory(BibleService, bible_repository=bible_repository)
+
+    device_repository = providers.Factory(DeviceRepository, session=core.request_session)
+    push_service = providers.Factory(PushService, device_repository=device_repository)
 
     user_repository = providers.Factory(UserRepository, session=core.request_session)
     end_user_repository = providers.Factory(EndUserRepository, session=core.request_session)

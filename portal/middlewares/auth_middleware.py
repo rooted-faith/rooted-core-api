@@ -54,7 +54,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         logger.debug(f"Auth config: {auth_config}")
         if auth_config:
             try:
-                if auth_config.require_auth:
+                if auth_config.require_auth or auth_config.optional_auth:
                     await self._authenticate(request, auth_config)
 
                 # Check permissions if required
@@ -157,6 +157,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         credentials: Optional[HTTPAuthorizationCredentials] = await self._http_bearer(request)
 
         if not credentials:
+            if auth_config.optional_auth:
+                # No Authorization header under optional_auth: proceed unauthenticated.
+                return
             raise UnauthorizedException(detail="Authentication required")
 
         token = credentials.credentials
