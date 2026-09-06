@@ -6,7 +6,13 @@ import click
 
 from .bible import dump_bible_process
 from .import_bible import import_bible_data_process
+from .init_all import init_all_process
+from .init_locale import init_locales_process
+from .rbac import init_rbac_process, reset_rbac_process
 from .seed_identity_providers import seed_identity_providers_process
+from .seed_legal_documents import seed_legal_documents_process
+from .seed_system_settings import seed_system_settings_process
+from .superuser import create_superuser_process
 
 
 @click.group()
@@ -64,6 +70,53 @@ def seed_identity_providers_cmd():
     seed_identity_providers_process()
 
 
+@cli.command(name="create-superuser")
+def create_superuser_cmd():
+    """Create a superuser account via interactive prompts."""
+    create_superuser_process()
+
+
+@cli.command(name="init-rbac")
+def init_rbac_cmd():
+    """Seed verbs, resources, permissions, roles, and role-permission mappings."""
+    init_rbac_process()
+
+
+@cli.command(name="reset-rbac")
+@click.option("--force", is_flag=True, default=False, help="Skip the IS_DEV guard and confirmation prompt.")
+def reset_rbac_cmd(force: bool):
+    """Delete all RBAC data and re-seed from rbac_seed_data."""
+    reset_rbac_process(force=force)
+
+
+@cli.command(name="init-locales")
+def init_locales_cmd():
+    """Seed locales into SystemLocale table."""
+    init_locales_process()
+
+
+@cli.command(name="seed-legal-documents")
+def seed_legal_documents_cmd():
+    """Seed content.legal_document rows (insert-if-missing)."""
+    seed_legal_documents_process()
+
+
+@cli.command(name="seed-system-settings")
+def seed_system_settings_cmd():
+    """Seed public.system_setting rows (insert-if-missing)."""
+    seed_system_settings_process()
+
+
+@cli.command(name="init-all")
+def init_all_cmd():
+    """Seed locale, identity provider, legal document, system setting, and RBAC data, then create a superuser."""
+    init_all_process()
+
+
 def main() -> int:
     cli()
     return 0
+
+
+if __name__ == "__main__":
+    main()

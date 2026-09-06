@@ -44,13 +44,24 @@ dependencies = [
     "pillow",
     "aiosmtplib",
     "jinja2",
+    "click",
 ]
 
+[project.scripts]
+rooted-cli = "portal.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["portal*"]
+
 [dependency-groups]
-dev = ["alembic", "pytest", "pytest-asyncio", "pytest-mock", "click", "ruff"]
+dev = ["alembic", "pytest", "pytest-asyncio", "pytest-mock", "ruff"]
 
 [tool.uv]
-package = false
+package = true
 required-version = ">=0.12.4,<0.13"
 
 [tool.ruff]
