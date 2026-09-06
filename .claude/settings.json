@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../rooted-portal-frontend",
+      "../rooted-docs",
+      "../rooted-app"
+    ],
+    "deny": [
+      "Read(../rooted-portal-frontend/node_modules/**)",
+      "Read(../rooted-portal-frontend/dist/**)",
+      "Read(../rooted-docs/site/**)",
+      "Read(../rooted-app/node_modules/**)",
+      "Read(../rooted-app/.expo/**)"
+    ]
+  }
+}
