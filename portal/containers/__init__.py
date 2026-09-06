@@ -54,7 +54,6 @@ class RootContainer(containers.DeclarativeContainer):
     bible_service = app.bible_service
     end_user_provisioning_service = app.end_user_provisioning_service
     app_auth_service = app.app_auth_service
-    end_user_repository = app.end_user_repository
     push_service = app.push_service
 
     event_bus = events.event_bus

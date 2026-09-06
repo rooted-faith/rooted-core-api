@@ -9,7 +9,6 @@ from starlette import status
 from portal.application.push.mappers import device_to_api
 from portal.application.push.push_service import PushService
 from portal.container import Container
-from portal.domain.app.ports import EndUserRepositoryPort
 from portal.libs.contexts.user_context import get_user_context
 from portal.libs.depends.rate_limiters import WRITE_RATE_LIMITERS
 from portal.routers.auth_router import AuthRouter
@@ -35,16 +34,11 @@ router: AuthRouter = AuthRouter()
 )
 @inject
 async def register_device(
-    device_key: str,
-    body: DeviceRegistrationRequest,
-    push_service: PushService = Depends(Provide[Container.push_service]),
-    end_user_repository: EndUserRepositoryPort = Depends(Provide[Container.end_user_repository]),
+    device_key: str, body: DeviceRegistrationRequest, push_service: PushService = Depends(Provide[Container.push_service])
 ) -> DeviceRegistration:
     user_context = get_user_context()
-    end_user_id = None
-    if user_context and user_context.user_id:
-        end_user = await end_user_repository.get_by_auth_user_id(user_context.user_id)
-        end_user_id = end_user.id if end_user else None
+    auth_user_id = user_context.user_id if user_context else None
+    end_user_id = await push_service.resolve_end_user_id(auth_user_id)
 
     result = await push_service.register_device(
         device_key=device_key, token=body.token, platform=body.platform, app_version=body.app_version, end_user_id=end_user_id
