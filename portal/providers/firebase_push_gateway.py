@@ -3,7 +3,6 @@ Firebase Cloud Messaging push gateway (ADR 0007 — direct FCM integration).
 """
 
 import asyncio
-import json
 from typing import Optional
 
 import firebase_admin
@@ -25,20 +24,19 @@ class FirebasePushGateway:
     default app, which would otherwise blow up on every DI construction).
     """
 
-    def __init__(self, credentials_json: Optional[str]):
+    def __init__(self, credentials_dict: Optional[dict]):
         self._app = None
         try:
             self._app = firebase_admin.get_app()
         except ValueError:
-            if not credentials_json:
-                logger.warning("FIREBASE_CREDENTIALS_JSON is not set; push notifications will fail until it is configured")
+            if not credentials_dict:
+                logger.warning("Firebase credentials are not configured; push notifications will fail until they are")
                 return
-            certificate = credentials.Certificate(json.loads(credentials_json))
-            self._app = firebase_admin.initialize_app(certificate)
+            self._app = firebase_admin.initialize_app(credentials.Certificate(credentials_dict))
 
     async def send_multicast(self, *, tokens: list[str], title: str, body: str, data: Optional[dict]) -> list[PushSendResult]:
         if self._app is None:
-            raise RuntimeError("Firebase push gateway is not configured (missing FIREBASE_CREDENTIALS_JSON)")
+            raise RuntimeError("Firebase push gateway is not configured (missing Firebase credentials)")
 
         string_data = {key: str(value) for key, value in (data or {}).items()}
         results: list[PushSendResult] = []
