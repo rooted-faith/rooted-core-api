@@ -26,7 +26,7 @@ target_metadata = Base.metadata
 table_schema = settings.DATABASE_SCHEMA
 # Allowed schemas for migrations
 # NOTE: If you add a new schema, you need to add it to the ALLOWED_SCHEMAS list
-ALLOWED_SCHEMAS = {"public", "auth", "audit", "app", "bible", "content"}
+ALLOWED_SCHEMAS = {"public", "auth", "audit", "content", "app", "bible", "push"}
 
 # Get logger
 log = logging.getLogger("alembic.env")
