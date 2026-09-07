@@ -2,6 +2,7 @@
 Configuration
 """
 
+import json
 import logging
 import os
 from functools import lru_cache
@@ -133,14 +134,53 @@ class Configuration(BaseSettings):
     # [Rate Limiting]
     RATE_LIMITERS_CONFIG: RateLimitersConfig | None = None
 
-    # [Push notifications — Firebase Cloud Messaging, ADR 0007. Service-account JSON, not a file path.]
-    FIREBASE_CREDENTIALS_JSON: str | None = os.getenv(key="FIREBASE_CREDENTIALS_JSON")
+    # [Push notifications — Firebase Cloud Messaging, ADR 0007. Service-account credential, loaded per environment; see _load_firebase_credentials.]
+    FIREBASE_CREDENTIALS_PATH: str | None = os.getenv(key="FIREBASE_CREDENTIALS_PATH")
+    FIREBASE_CREDENTIALS: dict = {}
 
     # [Sentry]
     SENTRY_URL: str | None = os.getenv(key="SENTRY_URL")
 
     # [Logging]
     SENSITIVE_PARAMS: set[str] = set(os.getenv(key="SENSITIVE_PARAMS", default="password,secret,api_key").split(","))
+
+    @model_validator(mode="after")
+    def _load_firebase_credentials(self) -> "Configuration":
+        """
+        Load the Firebase service-account credential from, in order:
+        1) FIREBASE_CREDENTIALS_PATH env var (if provided)
+        2) env/firebase_credentials.json
+        3) /etc/secrets/firebase_credentials.json
+        """
+        if self.FIREBASE_CREDENTIALS:
+            return self
+
+        candidate_paths: list[str] = []
+        if self.FIREBASE_CREDENTIALS_PATH:
+            candidate_paths.append(self.FIREBASE_CREDENTIALS_PATH)
+
+        project_dir = Path(__file__).resolve().parent.parent
+        candidate_paths.extend([os.path.join(project_dir, "env/firebase_credentials.json"), "/etc/secrets/firebase_credentials.json"])
+
+        for candidate_path in candidate_paths:
+            try:
+                firebase_credentials_path: Path = Path(candidate_path)
+                if firebase_credentials_path.exists():
+                    self.FIREBASE_CREDENTIALS = json.loads(firebase_credentials_path.read_text())
+                    logger = logging.getLogger(self.APP_NAME)
+                    logger.info(f"Firebase credentials loaded from {candidate_path}")
+                    break
+            except FileNotFoundError:
+                continue
+            except Exception as exc:
+                logger = logging.getLogger(self.APP_NAME)
+                logger.warning(f"Failed to load Firebase credentials from {candidate_path}: {exc}")
+
+        if not self.FIREBASE_CREDENTIALS:
+            logger = logging.getLogger(self.APP_NAME)
+            logger.warning("Firebase credentials not found; push notifications will fail until configured")
+
+        return self
 
     @model_validator(mode="after")
     def _load_rate_limiters_config(self) -> "Configuration":

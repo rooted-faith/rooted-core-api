@@ -34,4 +34,4 @@ class CoreContainer(containers.DeclarativeContainer):
     password_provider = providers.Singleton(PasswordProvider)
     refresh_token_provider = providers.Factory(RefreshTokenProvider, session=request_session)
     google_id_token_verifier = providers.Singleton(GoogleIdTokenVerifier)
-    push_gateway = providers.Singleton(FirebasePushGateway, credentials_json=config.FIREBASE_CREDENTIALS_JSON)
+    push_gateway = providers.Singleton(FirebasePushGateway, credentials_dict=config.FIREBASE_CREDENTIALS)
