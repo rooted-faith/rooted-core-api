@@ -19,3 +19,8 @@ class Locale(UUIDModel):
     native_name: Optional[str] = Field(None, description="Native locale name")
     is_active: bool = Field(True, description="Is locale active")
     is_default: bool = Field(False, description="Is default locale")
+
+    @property
+    def code(self) -> str:
+        """Canonical BCP-47 locale code assembled from catalog columns."""
+        return "-".join(part for part in (self.language_code, self.script_code, self.region_code) if part)
