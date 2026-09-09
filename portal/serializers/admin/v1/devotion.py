@@ -1,5 +1,6 @@
-"""Admin Devotion authoring serializers."""
+"""Admin Devotion authoring and scheduling serializers."""
 
+from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -52,3 +53,22 @@ class AdminDevotionDetail(AdminDevotionItem):
 class AdminDevotionPages(PaginationBaseResponseModel):
     total_pages: int = Field(serialization_alias="totalPages")
     items: list[AdminDevotionItem] = Field(default_factory=list)
+
+
+class AdminDailyLessonScheduleUpsert(BaseModel):
+    devotion_id: UUID = Field(serialization_alias="devotionId")
+
+
+class AdminDailyLessonScheduleQuery(BaseModel):
+    from_date: date = Field(alias="from")
+    to_date: date = Field(alias="to")
+
+
+class AdminDailyLessonScheduleItem(BaseModel):
+    date: date
+    devotion_id: UUID | None = Field(default=None, serialization_alias="devotionId")
+
+
+class AdminDailyLessonScheduleRange(BaseModel):
+    items: list[AdminDailyLessonScheduleItem] = Field(default_factory=list)
+    scheduled_through: date | None = Field(default=None, serialization_alias="scheduledThrough")

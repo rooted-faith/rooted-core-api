@@ -4,7 +4,7 @@ from uuid import UUID
 import sqlalchemy as sa
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, EncounterStreak, LessonNote, Passage
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, DailyLessonSchedule, EncounterStreak, LessonNote, Passage
 from portal.domain.devotion.entities import Devotion as DevotionEntity
 from portal.domain.devotion.entities import DevotionTranslation as DevotionTranslationEntity
 from portal.domain.locale.entities import Locale
@@ -22,6 +22,38 @@ class DevotionRepository:
     async def daily_lesson_exists(self, lesson_date: date) -> bool:
         schedule_id = await self._session.select(DevotionDailyLessonSchedule.id).where(DevotionDailyLessonSchedule.date == lesson_date).fetchval()
         return schedule_id is not None
+
+    async def insert_daily_lesson_schedule(self, lesson_date: date, devotion_id: UUID) -> bool:
+        status = await (
+            self._session.insert(DevotionDailyLessonSchedule)
+            .values(date=lesson_date, devotion_id=devotion_id)
+            .on_conflict_do_nothing(index_elements=["date"])
+            .execute()
+        )
+        return status == "INSERT 0 1"
+
+    async def update_daily_lesson_schedule(self, lesson_date: date, devotion_id: UUID) -> int:
+        result = await (
+            self._session.update(DevotionDailyLessonSchedule)
+            .values(devotion_id=devotion_id, updated_at=sa.func.now())
+            .where(DevotionDailyLessonSchedule.date == lesson_date)
+            .execute()
+        )
+        return affected_rows(result)
+
+    async def delete_daily_lesson_schedule(self, lesson_date: date) -> int:
+        result = await self._session.delete(DevotionDailyLessonSchedule).where(DevotionDailyLessonSchedule.date == lesson_date).execute()
+        return affected_rows(result)
+
+    async def list_daily_lesson_schedules(self, from_date: date, to_date: date) -> list[DailyLessonSchedule]:
+        schedules = await (
+            self._session.select(DevotionDailyLessonSchedule.date, DevotionDailyLessonSchedule.devotion_id)
+            .where(DevotionDailyLessonSchedule.date >= from_date)
+            .where(DevotionDailyLessonSchedule.date <= to_date)
+            .order_by(DevotionDailyLessonSchedule.date)
+            .fetch(as_model=DailyLessonSchedule)
+        )
+        return schedules or []
 
     async def insert_encounter_day(self, user_id: UUID, encounter_date: date) -> bool:
         status = await (

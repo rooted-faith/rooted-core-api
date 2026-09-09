@@ -1,11 +1,15 @@
 from portal.application.devotion.commands import (
     CreateDevotionCommand,
+    DailyLessonScheduleQuery,
     DevotionPagesQuery,
+    ScheduleDailyLessonCommand,
     UpdateDevotionCommand,
     UpsertDevotionTranslationCommand,
     UpsertLessonNoteCommand,
 )
 from portal.application.devotion.results import (
+    DailyLessonScheduleRangeResult,
+    DailyLessonScheduleResult,
     DevotionDetailResult,
     DevotionListItemResult,
     DevotionPageResult,
@@ -15,6 +19,10 @@ from portal.application.devotion.results import (
 )
 from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, LessonNote
 from portal.serializers.admin.v1.devotion import (
+    AdminDailyLessonScheduleItem,
+    AdminDailyLessonScheduleQuery,
+    AdminDailyLessonScheduleRange,
+    AdminDailyLessonScheduleUpsert,
     AdminDevotionCreate,
     AdminDevotionDetail,
     AdminDevotionItem,
@@ -111,3 +119,19 @@ def devotion_page_to_api(result: DevotionPageResult) -> AdminDevotionPages:
         total_pages=result.total_pages,
         items=[devotion_item_to_api(item) for item in result.items],
     )
+
+
+def daily_lesson_schedule_upsert_to_command(model: AdminDailyLessonScheduleUpsert) -> ScheduleDailyLessonCommand:
+    return ScheduleDailyLessonCommand(devotion_id=model.devotion_id)
+
+
+def daily_lesson_schedule_query_to_command(model: AdminDailyLessonScheduleQuery) -> DailyLessonScheduleQuery:
+    return DailyLessonScheduleQuery(from_date=model.from_date, to_date=model.to_date)
+
+
+def daily_lesson_schedule_to_api(result: DailyLessonScheduleResult) -> AdminDailyLessonScheduleItem:
+    return AdminDailyLessonScheduleItem.model_validate(result)
+
+
+def daily_lesson_schedule_range_to_api(result: DailyLessonScheduleRangeResult) -> AdminDailyLessonScheduleRange:
+    return AdminDailyLessonScheduleRange(items=[daily_lesson_schedule_to_api(item) for item in result.items], scheduled_through=result.scheduled_through)

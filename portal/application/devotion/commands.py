@@ -2,6 +2,7 @@
 
 from datetime import date
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -34,3 +35,12 @@ class DevotionPagesQuery(BaseModel):
     page_size: int = Field(default=10, ge=1, le=100)
     status: Optional[DevotionStatus] = None
     missing_locale: Optional[str] = Field(default=None, min_length=1, max_length=64)
+
+
+class ScheduleDailyLessonCommand(BaseModel):
+    devotion_id: UUID
+
+
+class DailyLessonScheduleQuery(BaseModel):
+    from_date: date
+    to_date: date
