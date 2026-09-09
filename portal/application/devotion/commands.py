@@ -1,5 +1,6 @@
 """Devotion authoring application commands."""
 
+from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -20,6 +21,12 @@ class UpsertDevotionTranslationCommand(BaseModel):
     reflect: list[str] = Field(default_factory=list)
     apply: str = Field(min_length=1)
     pray: str = Field(min_length=1)
+
+
+class UpsertLessonNoteCommand(BaseModel):
+    date: date
+    body: str | None = None
+    reflects: list[str | None] = Field(default_factory=list)
 
 
 class DevotionPagesQuery(BaseModel):

@@ -20,12 +20,19 @@ class AnonymousDailyLesson(BaseModel):
     locked: list[str] = Field(default_factory=lambda: ["reflect", "apply", "pray", "note"])
 
 
+class LessonNote(BaseModel):
+    date: date
+    body: str | None = None
+    reflects: list[str | None] = Field(default_factory=list)
+
+
 class DailyLesson(BaseModel):
     date: date
     passage: Passage
     reflect: list[str] = Field(default_factory=list)
     apply: str
     pray: str
+    note: LessonNote | None = None
     locked: list[str] = Field(default_factory=list)
 
 

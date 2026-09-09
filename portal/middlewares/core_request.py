@@ -145,6 +145,7 @@ class CoreRequestMiddleware(BaseHTTPMiddleware):
             host=headers.get("host"),
             referer=headers.get("referer"),
             origin=headers.get("origin"),
+            time_zone=headers.get("x-timezone"),
         )
 
     @inject

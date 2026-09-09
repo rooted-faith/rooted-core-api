@@ -40,7 +40,7 @@ How many consecutive dates an End user has an **Encounter day** for, shown only 
 _Avoid_: trusting a stored current-streak value without date validation, exposing either number to other members, "streak broken" copy
 
 **Lesson note**:
-An End user's own writing for one calendar date — free note text plus optional answers to that day's reflection prompts, in one row per user per date. Sign-in required, and writable **only for the current local date**, like an **Encounter day**. Optional throughout: never required to record an Encounter day. **Private** unless explicitly shared via fellowship **Share** with chosen privacy.
+An End user's own writing for one calendar date — free note text plus optional answers to that day's reflection prompts, in one row per user per date. Sign-in required, and writable **only for the current local date**, like an **Encounter day**. The client supplies its IANA device time zone in `X-Timezone`; the backend converts its current UTC time into that zone before accepting the date. Optional throughout: never required to record an Encounter day. **Private** unless explicitly shared via fellowship **Share** with chosen privacy.
 _Avoid_: treating all notes as group-visible, a separate store for reflection answers, keying the note to the pooled **Devotion** (a Devotion may be rescheduled; the writing belongs to the person's day, not to the content), requiring a note before an Encounter day
 
 ---

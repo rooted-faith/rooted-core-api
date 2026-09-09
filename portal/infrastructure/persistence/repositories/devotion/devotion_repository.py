@@ -4,7 +4,7 @@ from uuid import UUID
 import sqlalchemy as sa
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, EncounterStreak, Passage
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, EncounterStreak, LessonNote, Passage
 from portal.domain.devotion.entities import Devotion as DevotionEntity
 from portal.domain.devotion.entities import DevotionTranslation as DevotionTranslationEntity
 from portal.domain.locale.entities import Locale
@@ -12,6 +12,7 @@ from portal.libs.database import Session
 from portal.libs.database.execute_result import affected_rows
 from portal.models import BibleBook, BibleVerse, BibleVersion, Devotion, DevotionDailyLessonSchedule, DevotionTranslation, EncounterDay, SystemLocale
 from portal.models import EncounterStreak as EncounterStreakModel
+from portal.models import LessonNote as LessonNoteModel
 
 
 class DevotionRepository:
@@ -64,6 +65,29 @@ class DevotionRepository:
             .where(EncounterDay.date <= through_date)
             .order_by(EncounterDay.date)
             .fetchvals()
+        )
+
+    async def get_lesson_note(self, user_id: UUID, note_date: date) -> LessonNote | None:
+        return await (
+            self._session.select(LessonNoteModel.date, LessonNoteModel.body, LessonNoteModel.reflect_answers.label("reflects"))
+            .where(LessonNoteModel.user_id == user_id)
+            .where(LessonNoteModel.date == note_date)
+            .fetchrow(as_model=LessonNote)
+        )
+
+    async def upsert_lesson_note(self, user_id: UUID, note: LessonNote) -> None:
+        await (
+            self._session.insert(LessonNoteModel)
+            .values(user_id=user_id, date=note.date, body=note.body, reflect_answers=note.reflects)
+            .on_conflict_do_update(
+                index_elements=["user_id", "date"],
+                set_={
+                    "body": sa.literal_column("excluded.body"),
+                    "reflect_answers": sa.literal_column("excluded.reflect_answers"),
+                    "updated_at": sa.func.now(),
+                },
+            )
+            .execute()
         )
 
     async def get_devotion(self, devotion_id: UUID) -> DevotionEntity | None:

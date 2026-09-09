@@ -20,6 +20,7 @@ class HeaderInfo(BaseModel):
     host: Optional[str] = Field(None, description="Host")
     referer: Optional[str] = Field(None, description="Referer")
     origin: Optional[str] = Field(None, description="Origin")
+    time_zone: Optional[str] = Field(None, description="X-Timezone")
 
 
 class TokenPayload(BaseModel):

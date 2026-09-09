@@ -1,23 +1,25 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 import pytest
 
+from portal.application.devotion.commands import UpsertLessonNoteCommand
 from portal.application.devotion.devotion_service import DevotionService
 from portal.domain.app.entities import EndUser
 from portal.domain.devotion.constants import DevotionErrorCode
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, EncounterStreak, Passage
-from portal.exceptions.responses import NotFoundException
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, EncounterStreak, LessonNote, Passage
+from portal.exceptions.responses import BadRequestException, NotFoundException
 
 
 class StubDevotionRepository:
-    def __init__(self, lesson=None, scheduled=True, *, inserted=True, streak=None, recent_dates=None):
+    def __init__(self, lesson=None, scheduled=True, *, inserted=True, streak=None, recent_dates=None, notes=None):
         self.lesson = lesson
         self.scheduled = scheduled
         self.inserted = inserted
         self.streak = streak
         self.recent_dates = recent_dates or []
         self.saved_streak = None
+        self.notes = notes or {}
 
     async def fetch_daily_lesson(self, lesson_date, locale_id, locale_code, include_authored_sections):
         return self.lesson
@@ -37,6 +39,12 @@ class StubDevotionRepository:
 
     async def list_recent_encounter_dates(self, user_id, through_date):
         return self.recent_dates
+
+    async def get_lesson_note(self, user_id, note_date):
+        return self.notes.get((user_id, note_date))
+
+    async def upsert_lesson_note(self, user_id, note):
+        self.notes[(user_id, note.date)] = note
 
 
 class StubEndUserRepository:
@@ -204,3 +212,72 @@ async def test_get_rhythm_keeps_current_streak_when_last_encounter_was_yesterday
     result = await service.get_rhythm(auth_user_id=auth_user_id, reader_date=date(2026, 9, 8))
 
     assert result.current_streak == 5
+
+
+@pytest.mark.asyncio
+async def test_upsert_lesson_note_replaces_the_existing_note_for_today():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    repository = StubDevotionRepository()
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 10, 2, 30, tzinfo=timezone.utc))
+
+    await service.upsert_lesson_note(
+        auth_user_id=auth_user_id,
+        command=UpsertLessonNoteCommand(date=date(2026, 9, 9), body="First thought", reflects=["First answer"]),
+        time_zone="America/Toronto",
+    )
+    result = await service.upsert_lesson_note(
+        auth_user_id=auth_user_id,
+        command=UpsertLessonNoteCommand(date=date(2026, 9, 9), body="Revised thought", reflects=[None, "Second answer"]),
+        time_zone="America/Toronto",
+    )
+
+    assert result == LessonNote(date=date(2026, 9, 9), body="Revised thought", reflects=[None, "Second answer"])
+    assert repository.notes == {(end_user.id, date(2026, 9, 9)): result}
+
+
+@pytest.mark.asyncio
+async def test_upsert_lesson_note_rejects_a_date_other_than_the_current_header_timezone_date():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    service = DevotionService(StubDevotionRepository(), StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 10, 2, 30, tzinfo=timezone.utc))
+
+    with pytest.raises(BadRequestException):
+        await service.upsert_lesson_note(
+            auth_user_id=auth_user_id, command=UpsertLessonNoteCommand(date=date(2026, 9, 10), body=None, reflects=[]), time_zone="America/Toronto"
+        )
+
+
+@pytest.mark.asyncio
+async def test_upsert_lesson_note_allows_empty_body_and_partial_reflection_answers():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    service = DevotionService(StubDevotionRepository(), StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 10, 2, 30, tzinfo=timezone.utc))
+
+    result = await service.upsert_lesson_note(
+        auth_user_id=auth_user_id,
+        command=UpsertLessonNoteCommand(date=date(2026, 9, 9), body=None, reflects=[None, "Only this answer"]),
+        time_zone="America/Toronto",
+    )
+
+    assert result.body is None
+    assert result.reflects == [None, "Only this answer"]
+
+
+@pytest.mark.asyncio
+async def test_get_daily_lesson_returns_the_callers_past_note():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    note = LessonNote(date=date(2026, 9, 8), body="A past note", reflects=["A past answer"])
+    lesson = DailyLesson(
+        date=date(2026, 9, 8),
+        passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=["For God so loved the world"]),
+        reflect=["Reflect"],
+        apply="Apply",
+        pray="Pray",
+    )
+    service = DevotionService(StubDevotionRepository(lesson=lesson, notes={(end_user.id, note.date): note}), StubEndUserRepository(end_user))
+
+    result = await service.get_daily_lesson(date(2026, 9, 8), locale_id=None, locale_code="en", include_authored_sections=True, auth_user_id=auth_user_id)
+
+    assert result.note == note

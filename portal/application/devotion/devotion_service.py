@@ -1,27 +1,45 @@
-from datetime import date, timedelta
+from collections.abc import Callable
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from portal.application.devotion.commands import CreateDevotionCommand, DevotionPagesQuery, UpdateDevotionCommand, UpsertDevotionTranslationCommand
+from portal.application.devotion.commands import (
+    CreateDevotionCommand,
+    DevotionPagesQuery,
+    UpdateDevotionCommand,
+    UpsertDevotionTranslationCommand,
+    UpsertLessonNoteCommand,
+)
 from portal.application.devotion.results import DevotionDetailResult, DevotionPageResult, DevotionTranslationResult, EncounterResult, RhythmResult
 from portal.domain.app.ports import EndUserRepositoryPort
 from portal.domain.devotion.constants import DevotionErrorCode, DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote
 from portal.domain.devotion.ports import DevotionRepositoryPort
-from portal.exceptions.responses import ConflictErrorException, NotFoundException, UnauthorizedException
+from portal.exceptions.responses import BadRequestException, ConflictErrorException, NotFoundException, UnauthorizedException
 from portal.libs.tracing.distributed_trace import distributed_trace
 
 
 class DevotionService:
-    def __init__(self, devotion_repository: DevotionRepositoryPort, end_user_repository: EndUserRepositoryPort | None):
+    def __init__(
+        self,
+        devotion_repository: DevotionRepositoryPort,
+        end_user_repository: EndUserRepositoryPort | None,
+        now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    ):
         self._repository = devotion_repository
         self._end_user_repository = end_user_repository
+        self._now_provider = now_provider
 
     @distributed_trace()
     async def get_daily_lesson(
-        self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool
+        self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool, auth_user_id: UUID | None = None
     ) -> AnonymousDailyLesson | DailyLesson:
         lesson = await self._repository.fetch_daily_lesson(lesson_date, locale_id, locale_code, include_authored_sections)
         if lesson is not None:
+            if isinstance(lesson, DailyLesson) and auth_user_id is not None:
+                end_user_id = await self._get_end_user_id(auth_user_id)
+                note = await self._repository.get_lesson_note(end_user_id, lesson_date)
+                return lesson.model_copy(update={"note": note})
             return lesson
         if not await self._repository.daily_lesson_exists(lesson_date):
             raise NotFoundException(detail=f"No Daily lesson scheduled for {lesson_date}", error_code=DevotionErrorCode.DATE_NOT_SCHEDULED)
@@ -122,6 +140,26 @@ class DevotionService:
         if end_user is None:
             raise UnauthorizedException(detail="This credential has no End user")
         return end_user.id
+
+    @distributed_trace()
+    async def upsert_lesson_note(self, *, auth_user_id: UUID, command: UpsertLessonNoteCommand, time_zone: str | None) -> LessonNote:
+        current_local_date = self._current_local_date(time_zone)
+        if command.date != current_local_date:
+            raise BadRequestException(
+                detail="Lesson note must be written for the caller's current local date", error_code=DevotionErrorCode.LESSON_NOTE_DATE_NOT_TODAY
+            )
+        note = LessonNote(date=command.date, body=command.body, reflects=command.reflects)
+        await self._repository.upsert_lesson_note(await self._get_end_user_id(auth_user_id), note)
+        return note
+
+    def _current_local_date(self, time_zone: str | None) -> date:
+        try:
+            zone = ZoneInfo(time_zone) if time_zone else None
+        except ZoneInfoNotFoundError:
+            zone = None
+        if zone is None:
+            raise BadRequestException(detail="X-Timezone must be a valid IANA time zone", error_code=DevotionErrorCode.INVALID_TIME_ZONE)
+        return self._now_provider().astimezone(zone).date()
 
     @distributed_trace()
     async def record_encounter(self, *, auth_user_id: UUID, encounter_date: date) -> EncounterResult:
