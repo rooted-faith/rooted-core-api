@@ -5,13 +5,27 @@ from fastapi import Depends, Path, Query
 from starlette import status
 
 from portal.application.devotion.devotion_service import DevotionService
-from portal.application.devotion.mappers import daily_lesson_to_api, encounter_result_to_api, rhythm_result_to_api
+from portal.application.devotion.mappers import (
+    daily_lesson_to_api,
+    encounter_result_to_api,
+    lesson_note_to_api,
+    rhythm_result_to_api,
+    upsert_lesson_note_to_command,
+)
 from portal.container import Container
 from portal.exceptions.responses import UnauthorizedException
 from portal.libs.contexts.request_context import get_request_context, get_resolved_locale_code, get_resolved_locale_id
 from portal.libs.contexts.user_context import get_user_context
 from portal.routers.auth_router import AuthRouter
-from portal.serializers.apis.v1.devotion import AnonymousDailyLessonResponse, DailyLessonResponse, EncounterRequest, EncounterResponse, RhythmResponse
+from portal.serializers.apis.v1.devotion import (
+    AnonymousDailyLessonResponse,
+    DailyLessonResponse,
+    EncounterRequest,
+    EncounterResponse,
+    LessonNoteResponse,
+    LessonNoteUpsertRequest,
+    RhythmResponse,
+)
 
 router: AuthRouter = AuthRouter(require_auth=False, optional_auth=True)
 
@@ -34,8 +48,9 @@ async def _read_daily_lesson(lesson_date: date, devotion_service: DevotionServic
             locale_id = None
             locale_code = None
     user_context = get_user_context()
+    auth_user_id = user_context.user_id if user_context else None
     result = await devotion_service.get_daily_lesson(
-        lesson_date=lesson_date, locale_id=locale_id, locale_code=locale_code, include_authored_sections=bool(user_context and user_context.user_id)
+        lesson_date=lesson_date, locale_id=locale_id, locale_code=locale_code, include_authored_sections=bool(auth_user_id), auth_user_id=auth_user_id
     )
     return daily_lesson_to_api(result)
 
@@ -84,6 +99,27 @@ async def get_daily_lesson(
 async def record_encounter(request: EncounterRequest, devotion_service: DevotionService = Depends(Provide[Container.devotion_service])) -> EncounterResponse:
     result = await devotion_service.record_encounter(auth_user_id=_auth_user_id(), encounter_date=request.date)
     return encounter_result_to_api(result)
+
+
+@router.put(
+    path="/notes",
+    require_auth=True,
+    optional_auth=False,
+    response_model=LessonNoteResponse,
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK,
+    operation_id="upsert_lesson_note",
+    summary="Create or replace today's private lesson note",
+)
+@inject
+async def upsert_lesson_note(
+    request: LessonNoteUpsertRequest, devotion_service: DevotionService = Depends(Provide[Container.devotion_service])
+) -> LessonNoteResponse:
+    request_context = get_request_context()
+    result = await devotion_service.upsert_lesson_note(
+        auth_user_id=_auth_user_id(), command=upsert_lesson_note_to_command(request), time_zone=request_context.headers.time_zone if request_context else None
+    )
+    return lesson_note_to_api(result)
 
 
 @router.get(

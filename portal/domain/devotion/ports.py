@@ -3,7 +3,7 @@ from typing import Protocol
 from uuid import UUID
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote
 from portal.domain.locale.entities import Locale
 
 
@@ -21,6 +21,10 @@ class DevotionRepositoryPort(Protocol):
     async def save_encounter_streak(self, streak: EncounterStreak) -> None: ...
 
     async def list_recent_encounter_dates(self, user_id: UUID, through_date: date) -> list[date]: ...
+
+    async def get_lesson_note(self, user_id: UUID, note_date: date) -> LessonNote | None: ...
+
+    async def upsert_lesson_note(self, user_id: UUID, note: LessonNote) -> None: ...
 
     async def get_devotion(self, devotion_id: UUID) -> Devotion | None: ...
 

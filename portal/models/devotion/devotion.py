@@ -46,6 +46,16 @@ class EncounterDay(ModelBase, AuditCreatedAtMixin):
     date = Column(sa.Date, nullable=False, index=True)
 
 
+class LessonNote(ModelBase, AuditCreatedAtMixin, AuditUpdatedAtMixin):
+    __tablename__ = "lesson_notes"
+    __extra_table_args__ = (sa.UniqueConstraint("user_id", "date"), {"comment": "One private lesson note per End user and date"})
+
+    user_id = Column(UUID, sa.ForeignKey(AppUser.id, ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(sa.Date, nullable=False, index=True)
+    body = Column(sa.Text, nullable=True)
+    reflect_answers = Column(JSONB, nullable=False, server_default=sa.text("'[]'::jsonb"), comment="Ordered optional reflection answers")
+
+
 class EncounterStreak(ModelBase, AuditUpdatedAtMixin):
     __tablename__ = "encounter_streaks"
     __extra_table_args__ = ({"comment": "Stored longest streak and current-streak write cache (ADR 0012)"},)

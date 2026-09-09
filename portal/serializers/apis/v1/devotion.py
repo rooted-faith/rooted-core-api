@@ -16,12 +16,25 @@ class AnonymousDailyLessonResponse(BaseModel):
     locked: list[str] = Field(default_factory=list)
 
 
+class LessonNoteUpsertRequest(BaseModel):
+    date: date
+    body: str | None = None
+    reflects: list[str | None] = Field(default_factory=list)
+
+
+class LessonNoteResponse(BaseModel):
+    date: date
+    body: str | None = None
+    reflects: list[str | None] = Field(default_factory=list)
+
+
 class DailyLessonResponse(BaseModel):
     date: date
     passage: PassageResponse
     reflect: list[str] = Field(default_factory=list)
     apply: str
     pray: str
+    note: LessonNoteResponse | None = None
     locked: list[str] = Field(default_factory=list)
 
 

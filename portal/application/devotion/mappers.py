@@ -1,4 +1,10 @@
-from portal.application.devotion.commands import CreateDevotionCommand, DevotionPagesQuery, UpdateDevotionCommand, UpsertDevotionTranslationCommand
+from portal.application.devotion.commands import (
+    CreateDevotionCommand,
+    DevotionPagesQuery,
+    UpdateDevotionCommand,
+    UpsertDevotionTranslationCommand,
+    UpsertLessonNoteCommand,
+)
 from portal.application.devotion.results import (
     DevotionDetailResult,
     DevotionListItemResult,
@@ -7,7 +13,7 @@ from portal.application.devotion.results import (
     EncounterResult,
     RhythmResult,
 )
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, LessonNote
 from portal.serializers.admin.v1.devotion import (
     AdminDevotionCreate,
     AdminDevotionDetail,
@@ -18,7 +24,15 @@ from portal.serializers.admin.v1.devotion import (
     AdminDevotionTranslationUpsert,
     AdminDevotionUpdate,
 )
-from portal.serializers.apis.v1.devotion import AnonymousDailyLessonResponse, DailyLessonResponse, EncounterResponse, PassageResponse, RhythmResponse
+from portal.serializers.apis.v1.devotion import (
+    AnonymousDailyLessonResponse,
+    DailyLessonResponse,
+    EncounterResponse,
+    LessonNoteResponse,
+    LessonNoteUpsertRequest,
+    PassageResponse,
+    RhythmResponse,
+)
 
 
 def anonymous_daily_lesson_to_api(result: AnonymousDailyLesson) -> AnonymousDailyLessonResponse:
@@ -33,6 +47,7 @@ def daily_lesson_to_api(result: AnonymousDailyLesson | DailyLesson) -> Anonymous
             reflect=result.reflect,
             apply=result.apply,
             pray=result.pray,
+            note=lesson_note_to_api(result.note) if result.note else None,
             locked=result.locked,
         )
     return anonymous_daily_lesson_to_api(result)
@@ -40,6 +55,14 @@ def daily_lesson_to_api(result: AnonymousDailyLesson | DailyLesson) -> Anonymous
 
 def encounter_result_to_api(result: EncounterResult) -> EncounterResponse:
     return EncounterResponse.model_validate(result, from_attributes=True)
+
+
+def lesson_note_to_api(result: LessonNote) -> LessonNoteResponse:
+    return LessonNoteResponse.model_validate(result, from_attributes=True)
+
+
+def upsert_lesson_note_to_command(model: LessonNoteUpsertRequest) -> UpsertLessonNoteCommand:
+    return UpsertLessonNoteCommand(date=model.date, body=model.body, reflects=model.reflects)
 
 
 def rhythm_result_to_api(result: RhythmResult) -> RhythmResponse:
