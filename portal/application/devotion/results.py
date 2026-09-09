@@ -45,3 +45,13 @@ class DevotionPageResult(BaseModel):
     total: int
     total_pages: int
     items: list[DevotionListItemResult] = Field(default_factory=list)
+
+
+class DailyLessonScheduleResult(BaseModel):
+    date: date
+    devotion_id: UUID | None = None
+
+
+class DailyLessonScheduleRangeResult(BaseModel):
+    items: list[DailyLessonScheduleResult] = Field(default_factory=list)
+    scheduled_through: date | None = None

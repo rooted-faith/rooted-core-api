@@ -5,12 +5,22 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from portal.application.devotion.commands import (
     CreateDevotionCommand,
+    DailyLessonScheduleQuery,
     DevotionPagesQuery,
+    ScheduleDailyLessonCommand,
     UpdateDevotionCommand,
     UpsertDevotionTranslationCommand,
     UpsertLessonNoteCommand,
 )
-from portal.application.devotion.results import DevotionDetailResult, DevotionPageResult, DevotionTranslationResult, EncounterResult, RhythmResult
+from portal.application.devotion.results import (
+    DailyLessonScheduleRangeResult,
+    DailyLessonScheduleResult,
+    DevotionDetailResult,
+    DevotionPageResult,
+    DevotionTranslationResult,
+    EncounterResult,
+    RhythmResult,
+)
 from portal.domain.app.ports import EndUserRepositoryPort
 from portal.domain.devotion.constants import DevotionErrorCode, DevotionStatus
 from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote
@@ -132,6 +142,82 @@ class DevotionService:
             total_pages=(total + query.page_size - 1) // query.page_size,
             items=[DevotionDetailResult.model_validate(item) for item in items],
         )
+
+    @staticmethod
+    def _to_daily_lesson_schedule_result(lesson_date: date, devotion_id: UUID | None) -> DailyLessonScheduleResult:
+        return DailyLessonScheduleResult(date=lesson_date, devotion_id=devotion_id)
+
+    def _raise_if_past_daily_lesson_schedule_date(self, lesson_date: date) -> None:
+        if lesson_date < self._now_provider().date():
+            raise ConflictErrorException(
+                detail="Daily lesson schedules for past dates cannot be changed",
+                error_code=DevotionErrorCode.DAILY_LESSON_DATE_IN_PAST,
+                context={"date": str(lesson_date)},
+            )
+
+    async def _get_ready_devotion_or_raise(self, devotion_id: UUID) -> Devotion:
+        devotion = await self._get_devotion_or_raise(devotion_id)
+        if devotion.status != DevotionStatus.READY:
+            raise ConflictErrorException(
+                detail="Only a ready Devotion can be scheduled", error_code=DevotionErrorCode.DEVOTION_NOT_READY, context={"devotion_id": str(devotion_id)}
+            )
+        return devotion
+
+    @distributed_trace()
+    async def schedule_daily_lesson(self, lesson_date: date, command: ScheduleDailyLessonCommand) -> DailyLessonScheduleResult:
+        self._raise_if_past_daily_lesson_schedule_date(lesson_date)
+        devotion_id = command.devotion_id
+        await self._get_ready_devotion_or_raise(devotion_id)
+        if not await self._repository.insert_daily_lesson_schedule(lesson_date, devotion_id):
+            raise ConflictErrorException(
+                detail="A Daily lesson is already scheduled for this date",
+                error_code=DevotionErrorCode.DAILY_LESSON_DATE_ALREADY_SCHEDULED,
+                context={"date": str(lesson_date)},
+            )
+        return self._to_daily_lesson_schedule_result(lesson_date, devotion_id)
+
+    @distributed_trace()
+    async def reschedule_daily_lesson(self, lesson_date: date, command: ScheduleDailyLessonCommand) -> DailyLessonScheduleResult:
+        self._raise_if_past_daily_lesson_schedule_date(lesson_date)
+        devotion_id = command.devotion_id
+        await self._get_ready_devotion_or_raise(devotion_id)
+        if await self._repository.update_daily_lesson_schedule(lesson_date, devotion_id) < 1:
+            raise NotFoundException(
+                detail="Daily lesson schedule not found", error_code=DevotionErrorCode.DAILY_LESSON_SCHEDULE_NOT_FOUND, context={"date": str(lesson_date)}
+            )
+        return self._to_daily_lesson_schedule_result(lesson_date, devotion_id)
+
+    @distributed_trace()
+    async def unschedule_daily_lesson(self, lesson_date: date) -> None:
+        self._raise_if_past_daily_lesson_schedule_date(lesson_date)
+        if await self._repository.delete_daily_lesson_schedule(lesson_date) < 1:
+            raise NotFoundException(
+                detail="Daily lesson schedule not found", error_code=DevotionErrorCode.DAILY_LESSON_SCHEDULE_NOT_FOUND, context={"date": str(lesson_date)}
+            )
+
+    @distributed_trace()
+    async def get_daily_lesson_schedule(self, query: DailyLessonScheduleQuery) -> DailyLessonScheduleRangeResult:
+        from_date = query.from_date
+        to_date = query.to_date
+        if from_date > to_date:
+            raise BadRequestException(
+                detail="The schedule range start must not be after its end", error_code=DevotionErrorCode.INVALID_DAILY_LESSON_SCHEDULE_RANGE
+            )
+        schedules = await self._repository.list_daily_lesson_schedules(from_date, to_date)
+        devotion_ids_by_date = {schedule.date: schedule.devotion_id for schedule in schedules}
+        items = []
+        scheduled_through = None
+        has_gap = False
+        lesson_date = from_date
+        while lesson_date <= to_date:
+            devotion_id = devotion_ids_by_date.get(lesson_date)
+            items.append(self._to_daily_lesson_schedule_result(lesson_date, devotion_id))
+            if devotion_id is None:
+                has_gap = True
+            elif not has_gap:
+                scheduled_through = lesson_date
+            lesson_date += timedelta(days=1)
+        return DailyLessonScheduleRangeResult(items=items, scheduled_through=scheduled_through)
 
     async def _get_end_user_id(self, auth_user_id: UUID) -> UUID:
         if self._end_user_repository is None:

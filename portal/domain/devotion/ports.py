@@ -3,7 +3,7 @@ from typing import Protocol
 from uuid import UUID
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, DailyLessonSchedule, Devotion, EncounterStreak, LessonNote
 from portal.domain.locale.entities import Locale
 
 
@@ -49,3 +49,11 @@ class DevotionRepositoryPort(Protocol):
     async def fetch_devotion_pages(
         self, page: int, page_size: int, status: DevotionStatus | None, missing_locale_id: UUID | None
     ) -> tuple[list[Devotion], int]: ...
+
+    async def insert_daily_lesson_schedule(self, lesson_date: date, devotion_id: UUID) -> bool: ...
+
+    async def update_daily_lesson_schedule(self, lesson_date: date, devotion_id: UUID) -> int: ...
+
+    async def delete_daily_lesson_schedule(self, lesson_date: date) -> int: ...
+
+    async def list_daily_lesson_schedules(self, from_date: date, to_date: date) -> list[DailyLessonSchedule]: ...

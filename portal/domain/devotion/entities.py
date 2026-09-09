@@ -56,3 +56,8 @@ class Devotion(UUIDModel):
     passage_end: str
     status: DevotionStatus
     translations: list[DevotionTranslation] = Field(default_factory=list)
+
+
+class DailyLessonSchedule(BaseModel):
+    date: date
+    devotion_id: UUID
