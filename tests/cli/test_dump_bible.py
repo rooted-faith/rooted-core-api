@@ -45,18 +45,7 @@ class StubYouVersion:
 async def test_dump_bible_meta_only_writes_metadata_and_index(tmp_path: Path):
     stub = StubYouVersion()
 
-    await dump_bible(
-        bible_id="1392",
-        out_dir=str(tmp_path),
-        daily_limit=5000,
-        sleep_sec=0.0,
-        timeout_sec=30.0,
-        include_headings=False,
-        include_notes=False,
-        format_="text",
-        meta_only=True,
-        youversion=stub,
-    )
+    await dump_bible(bible_id="1392", out_dir=str(tmp_path), daily_limit=5000, sleep_sec=0.0, timeout_sec=30.0, meta_only=True, youversion=stub)
 
     bible_path = tmp_path / "1392" / "meta" / "bible.json"
     index_path = tmp_path / "1392" / "meta" / "index.json"
@@ -65,24 +54,14 @@ async def test_dump_bible_meta_only_writes_metadata_and_index(tmp_path: Path):
     assert stub.metadata_calls == ["1392"]
     assert stub.index_calls == ["1392"]
     assert stub.chapter_calls == []
+    assert not (tmp_path / "1392" / "passages.db").exists()
 
 
 @pytest.mark.asyncio
 async def test_dump_passages_fetches_each_chapter_through_the_port(tmp_path: Path):
     stub = StubYouVersion()
 
-    await dump_bible(
-        bible_id="1392",
-        out_dir=str(tmp_path),
-        daily_limit=5000,
-        sleep_sec=0.0,
-        timeout_sec=30.0,
-        include_headings=False,
-        include_notes=False,
-        format_="text",
-        meta_only=False,
-        youversion=stub,
-    )
+    await dump_bible(bible_id="1392", out_dir=str(tmp_path), daily_limit=5000, sleep_sec=0.0, timeout_sec=30.0, meta_only=False, youversion=stub)
 
     assert stub.chapter_calls == [("1392", "GEN.1")]
     conn = sqlite3.connect(tmp_path / "1392" / "passages.db")
@@ -97,14 +76,4 @@ async def test_dump_bible_requires_yvp_app_key(tmp_path: Path, monkeypatch: pyte
     monkeypatch.setattr("portal.cli.bible.settings.YVP_APP_KEY", "")
 
     with pytest.raises(SystemExit, match="YVP_APP_KEY is required"):
-        await dump_bible(
-            bible_id="1392",
-            out_dir=str(tmp_path),
-            daily_limit=5000,
-            sleep_sec=0.0,
-            timeout_sec=30.0,
-            include_headings=False,
-            include_notes=False,
-            format_="text",
-            meta_only=True,
-        )
+        await dump_bible(bible_id="1392", out_dir=str(tmp_path), daily_limit=5000, sleep_sec=0.0, timeout_sec=30.0, meta_only=True)

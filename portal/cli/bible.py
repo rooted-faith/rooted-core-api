@@ -39,26 +39,12 @@ def safe_filename(s: str) -> str:
 
 
 class YouVersionDumper:
-    def __init__(
-        self,
-        bible_id: str,
-        out_dir: str,
-        daily_limit: int,
-        sleep_sec: float,
-        timeout_sec: float,
-        include_headings: bool,
-        include_notes: bool,
-        format_: str,
-        youversion: YouVersionPort,
-    ):
+    def __init__(self, bible_id: str, out_dir: str, daily_limit: int, sleep_sec: float, timeout_sec: float, youversion: YouVersionPort):
         self.bible_id = str(bible_id)
         self.out_dir = out_dir
         self.daily_limit = daily_limit
         self.sleep_sec = sleep_sec
         self.timeout_sec = timeout_sec
-        self.include_headings = include_headings
-        self.include_notes = include_notes
-        self.format_ = format_
         self._youversion = youversion
 
         self.root_dir = os.path.join(out_dir, self.bible_id)
@@ -91,8 +77,6 @@ class YouVersionDumper:
                 "updated_at": None,
                 "rate_limit_info": None,
             }
-
-        self._init_database()
 
     def _save_state(self):
         self.state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -215,6 +199,7 @@ class YouVersionDumper:
         raise ValueError("index 回傳格式找不到 books[]。")
 
     async def dump_passages_by_chapter_from_index(self, index_obj: dict[str, Any]):
+        self._init_database()
         books = self._books(index_obj)
 
         start_bi = int(self.state.get("last_book_index", 0))
@@ -270,16 +255,7 @@ def _build_youversion_client(timeout_sec: float) -> YouVersionHttpClient:
 
 
 async def dump_bible(
-    bible_id: str,
-    out_dir: str,
-    daily_limit: int,
-    sleep_sec: float,
-    timeout_sec: float,
-    include_headings: bool,
-    include_notes: bool,
-    format_: str,
-    meta_only: bool,
-    youversion: YouVersionPort | None = None,
+    bible_id: str, out_dir: str, daily_limit: int, sleep_sec: float, timeout_sec: float, meta_only: bool, youversion: YouVersionPort | None = None
 ):
     """
     Dump YouVersion Bible metadata and passages.
@@ -287,17 +263,7 @@ async def dump_bible(
     if youversion is None:
         youversion = _build_youversion_client(timeout_sec)
 
-    dumper = YouVersionDumper(
-        bible_id=bible_id,
-        out_dir=out_dir,
-        daily_limit=daily_limit,
-        sleep_sec=sleep_sec,
-        timeout_sec=timeout_sec,
-        include_headings=include_headings,
-        include_notes=include_notes,
-        format_=format_,
-        youversion=youversion,
-    )
+    dumper = YouVersionDumper(bible_id=bible_id, out_dir=out_dir, daily_limit=daily_limit, sleep_sec=sleep_sec, timeout_sec=timeout_sec, youversion=youversion)
 
     try:
         click.echo(click.style(f"Dumping Bible ID: {bible_id}", fg="cyan"))
@@ -320,28 +286,6 @@ async def dump_bible(
         raise
 
 
-def dump_bible_process(
-    bible_id: str,
-    out_dir: str,
-    daily_limit: int,
-    sleep_sec: float,
-    timeout_sec: float,
-    include_headings: bool,
-    include_notes: bool,
-    format_: str,
-    meta_only: bool,
-):
+def dump_bible_process(bible_id: str, out_dir: str, daily_limit: int, sleep_sec: float, timeout_sec: float, meta_only: bool):
     """Synchronous entry to run Bible dumping."""
-    asyncio.run(
-        dump_bible(
-            bible_id=bible_id,
-            out_dir=out_dir,
-            daily_limit=daily_limit,
-            sleep_sec=sleep_sec,
-            timeout_sec=timeout_sec,
-            include_headings=include_headings,
-            include_notes=include_notes,
-            format_=format_,
-            meta_only=meta_only,
-        )
-    )
+    asyncio.run(dump_bible(bible_id=bible_id, out_dir=out_dir, daily_limit=daily_limit, sleep_sec=sleep_sec, timeout_sec=timeout_sec, meta_only=meta_only))
