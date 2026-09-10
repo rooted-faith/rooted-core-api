@@ -7,7 +7,6 @@ from portal.routers.auth_router import AuthRouter
 
 from .auth import router as auth_router
 from .content import router as content_router
-from .end_user import router as end_user_router
 from .locale import router as locale_router
 from .permission import router as permission_router
 from .resource import router as resource_router
@@ -18,7 +17,6 @@ from .verb import router as verb_router
 
 router = AuthRouter(dependencies=[*DEFAULT_RATE_LIMITERS], is_admin=True)
 router.include_router(auth_router, prefix="/auth", tags=["Auth"])
-router.include_router(end_user_router, prefix="/end-user", tags=["End User"])
 router.include_router(locale_router, prefix="/locale", tags=["Locale"])
 router.include_router(permission_router, prefix="/permission", tags=["Permission"])
 router.include_router(resource_router, prefix="/resource", tags=["Resource"])

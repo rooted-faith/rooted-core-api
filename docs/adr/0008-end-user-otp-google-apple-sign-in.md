@@ -1,4 +1,4 @@
-# ADR 0008 — End-user auth: email OTP + Google/Apple sign-in; optional onboarding registration; Admin reonboarding flag
+# ADR 0008 — End-user auth: email OTP + Google/Apple sign-in; optional onboarding registration
 
 ## Status
 
@@ -17,8 +17,6 @@ Product wants an account-creation moment inside onboarding without breaking the 
 3. **Apple ships code-complete but disabled** behind a client-side feature flag until the Apple Developer Program membership needed for the Sign-in-with-Apple entitlement is active. This is a client/rollout concern, not a backend one — the backend implements Apple as a normal Identity provider with no special-casing.
 4. **The existing password-based Settings register/login panel is retired** in favor of the same OTP/Google/Apple set used in onboarding — one End-user auth surface, not two.
 5. **Onboarding gains an optional, skippable "Register" step**, placed last (after the reminder step, before entering Today). Skippable to preserve the "no registration wall" / anonymous-use PRD guarantee, and because Apple's App Store review disfavors gating core functionality behind forced account creation.
-6. **Admin gains a per-End-user reonboarding flag**: when set, the client treats all onboarding steps as incomplete on next launch and clears the flag once the person finishes (or skips) them again. Ordinary first-time onboarding remains local, per-step client state — never synced — so adding a new step in the future only prompts existing users for that one step, no version bump needed.
-
 ## Consequences
 
 - "Magic link" terminology retires in favor of "OTP" wherever End-user auth is described.

@@ -79,7 +79,6 @@ def member_profile_result_to_api(result: MemberProfileResult) -> MemberInfo:
         roles=result.roles,
         preferred_locale_id=result.preferred_locale_id,
         last_login_at=result.last_login_at,
-        reonboarding_requested_at=result.reonboarding_requested_at,
     )
 
 

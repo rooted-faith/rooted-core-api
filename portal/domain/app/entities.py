@@ -4,7 +4,7 @@ End user and Preferences domain entities.
 Product rows key off EndUser.id (app.user.id), not auth.user.id.
 """
 
-from datetime import datetime, time
+from datetime import time
 from typing import Optional
 from uuid import UUID
 
@@ -18,9 +18,6 @@ class EndUser(UUIDBaseModel):
     """Product End user identity — separate UUID from the auth credential."""
 
     auth_user_id: UUID = Field(..., description="FK to auth.user credential row")
-    reonboarding_requested_at: Optional[datetime] = Field(
-        default=None, description="When an Admin asked this End user to replay onboarding; None once the client acknowledges it (ADR 0008)"
-    )
 
 
 class UserPreferences(UUIDBaseModel):

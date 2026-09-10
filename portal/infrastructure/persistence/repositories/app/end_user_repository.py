@@ -2,7 +2,6 @@
 Repositories for End user provisioning under the app schema.
 """
 
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -14,7 +13,7 @@ from portal.models.app import AppUser, AppUserPreferences
 class EndUserRepository:
     """Insert and load app.user End user rows."""
 
-    _END_USER_COLUMNS = (AppUser.id, AppUser.auth_user_id, AppUser.reonboarding_requested_at)
+    _END_USER_COLUMNS = (AppUser.id, AppUser.auth_user_id)
 
     def __init__(self, session: Session):
         self._session = session
@@ -35,16 +34,6 @@ class EndUserRepository:
         return await (
             self._session.select(*self._END_USER_COLUMNS).where(AppUser.id == end_user_id).where(AppUser.is_deleted == False).fetchrow(as_model=EndUser)
         )
-
-    async def set_reonboarding_requested_at(self, end_user_id: UUID, requested_at: Optional[datetime]) -> Optional[EndUser]:
-        await (
-            self._session.update(AppUser)
-            .values(reonboarding_requested_at=requested_at)
-            .where(AppUser.id == end_user_id)
-            .where(AppUser.is_deleted == False)
-            .execute()
-        )
-        return await self.get_by_id(end_user_id)
 
 
 class PreferencesRepository:

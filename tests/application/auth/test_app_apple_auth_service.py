@@ -58,7 +58,7 @@ def _build_service(monkeypatch: pytest.MonkeyPatch, client_ids: list[str] = ALLO
     verifier = StubAppleIdTokenVerifier()
     provisioning = EndUserProvisioningService(user_repo, end_user_repo, prefs_repo, StubPasswordProvider())
     login = MemberLoginService(
-        user_repo, end_user_repo, prefs_repo, StubJwtProvider(), StubRefreshTokenProvider(), StubMemberRefreshAppBindingProvider(), StubMemberWebAppRegistry()
+        user_repo, prefs_repo, StubJwtProvider(), StubRefreshTokenProvider(), StubMemberRefreshAppBindingProvider(), StubMemberWebAppRegistry()
     )
     service = AppAppleAuthService(provisioning, user_repo, end_user_repo, verifier, login)
     return service, user_repo, end_user_repo, prefs_repo, verifier

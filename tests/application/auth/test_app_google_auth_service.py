@@ -126,14 +126,6 @@ class StubEndUserRepository:
     async def get_by_id(self, end_user_id: UUID):
         return next((end_user for end_user in self.by_auth_user_id.values() if end_user.id == end_user_id), None)
 
-    async def set_reonboarding_requested_at(self, end_user_id: UUID, requested_at):
-        end_user = await self.get_by_id(end_user_id)
-        if end_user is None:
-            return None
-        updated = end_user.model_copy(update={"reonboarding_requested_at": requested_at})
-        self.by_auth_user_id[updated.auth_user_id] = updated
-        return updated
-
 
 class StubPreferencesRepository:
     def __init__(self):
@@ -207,7 +199,6 @@ def _build_service(
     )
     member_login_service = MemberLoginService(
         user_repository=user_repo,
-        end_user_repository=end_user_repo,
         preferences_repository=prefs_repo,
         jwt_provider=StubJwtProvider(),
         refresh_token_provider=StubRefreshTokenProvider(),

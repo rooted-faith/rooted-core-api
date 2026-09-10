@@ -2,7 +2,6 @@
 Ports for End user identity and Preferences persistence.
 """
 
-from datetime import datetime
 from typing import Optional, Protocol
 from uuid import UUID
 
@@ -17,10 +16,6 @@ class EndUserRepositoryPort(Protocol):
     async def get_by_auth_user_id(self, auth_user_id: UUID) -> Optional[EndUser]: ...
 
     async def get_by_id(self, end_user_id: UUID) -> Optional[EndUser]: ...
-
-    async def set_reonboarding_requested_at(self, end_user_id: UUID, requested_at: Optional[datetime]) -> Optional[EndUser]:
-        """Set (Admin request) or clear (client acknowledgement) the reonboarding flag; None when no such End user."""
-        ...
 
 
 class PreferencesRepositoryPort(Protocol):
