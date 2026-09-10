@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-09-03)
+Accepted (2026-09-03). Decision 2's implication that verse **text** is pre-imported is superseded by [ADR 0014](0014-bible-index-and-read-time-fill.md). Verse-per-row in `bible.versions` / `books` / `verses`, and no `bible_passages` table, still stand.
 
 ## Context
 

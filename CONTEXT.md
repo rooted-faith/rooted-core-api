@@ -11,7 +11,7 @@ Source of truth for product scope: `rooted-docs/docs/product/prd.md` (v1.0). Thi
 3. **No public square:** no likes, follows, leaderboards, or algorithmic discovery in v1.
 4. **Journal stays private:** journal entries, personal prayers, and private lesson notes never surface to groups or analytics content pipelines.
 5. **Small groups only:** target size 4–15; covenant before full fellowship features.
-6. **Licensed Scripture:** only public-domain or properly licensed translations in production (e.g. CUV1919, WEB per database design).
+6. **Licensed Scripture:** only public-domain or properly licensed translations in production (e.g. YouVersion CCBT `1392` under the Platform license). Do not ship NIV/ESV without rights.
 
 ---
 
@@ -41,19 +41,35 @@ _Avoid_: trusting a stored current-streak value without date validation, exposin
 
 **Lesson note**:
 An End user's own writing for one calendar date — free note text plus optional answers to that day's reflection prompts, in one row per user per date. Sign-in required, and writable **only for the current local date**, like an **Encounter day**. The client supplies its IANA device time zone in `X-Timezone`; the backend converts its current UTC time into that zone before accepting the date. Optional throughout: never required to record an Encounter day. **Private** unless explicitly shared via fellowship **Share** with chosen privacy.
-_Avoid_: treating all notes as group-visible, a separate store for reflection answers, keying the note to the pooled **Devotion** (a Devotion may be rescheduled; the writing belongs to the person's day, not to the content), requiring a note before an Encounter day
+_Avoid_: treating all notes as group-visible, a separate store for reflection answers, keying the note to the pooled **Devotion** (a Devotion may be rescheduled; the writing belongs to the person's day, not to the content), requiring a note before an Encounter day, conflating with a **Footnote** (publisher annotation on Scripture)
 
 ---
 
 ### Bible
 
 **Bible version**:
-A translation catalog entry (e.g. `cuv1919`, `web`). Text storage is separate from devotion editorial content.
-_Avoid_: bundling licensed NIV/ESV without rights
+A translation catalog entry for one published edition (e.g. YouVersion `1392` / CCBT 2023). The **Bible index** is stored up front; verse bodies are filled when someone actually reads that chapter. Text storage is separate from devotion editorial content.
+_Avoid_: bundling licensed NIV/ESV without rights, treating a new publisher revision as an in-place edit of the same catalog row when YouVersion issues a new bible id, pre-crawling every verse body into the catalog
+
+**Bible index**:
+The address tree of one **Bible version** — books, chapters, and verse identifiers — without Scripture text. Enough to list books, open a chapter picker, and validate a **Passage** reference such as `JHN.3.16`.
+_Avoid_: Passage (that is the served text plus its address), storing verse bodies in the index, calling the index "Sync"
 
 **Passage**:
-Addressable Scripture text (book, chapter, verse range) for a version — served to reader and devotion surfaces.
-_Avoid_: duplicating passage blobs inside every lesson row when normalized design exists
+Addressable Scripture text (book, chapter, verse range) for a version — served to reader and devotion surfaces. The Devotion row holds only the address (`passage_start` / `passage_end`); the text comes from the reader's **Bible version** when they actually read. A filled verse is an ordered list of lines (heading, paragraph, poetry line); a paragraph may split into inline fragments. Searchable Scripture for that verse is the concatenated body without **Heading** or **Footnote**.
+_Avoid_: duplicating passage blobs inside every lesson row when normalized design exists, sending YouVersion HTML to the App, indexing footnotes or headings as if they were verse text
+
+**Heading**:
+Publisher section title inside a **Bible version** (a **Scripture style** such as `s1` / `ms` / `cl`). May sit before a verse or in the middle of that verse's body. It is not Scripture text and not a **Passage** address.
+_Avoid_: treating it as the verse's only title field, assuming it always precedes the next verse number
+
+**Footnote**:
+Publisher annotation attached as an inline fragment inside verse text (YouVersion `yv-n`, usually type `f` or `x`) — explanation, alternate rendering, or cross-reference. Distinct from a **Lesson note**.
+_Avoid_: Note (unqualified), Lesson note, embedding YouVersion HTML in the App
+
+**Scripture style**:
+The publisher class on a line or inline fragment (`s1`, `q1`, `nd`, `wj`, `pn`, Footnote kinds, …). Fill stores the class as given. The App's first known set is Heading styles, poetry lines, Footnote, divine name (`nd`), words of Jesus (`wj`), and proper names (`pn`); anything else is stored and shown as ordinary text until a presentation is decided.
+_Avoid_: dropping unknown classes at fill time, copying YouVersion HTML/CSS into the App, treating every class as a new domain entity
 
 **Bookmark**:
 User-saved passage reference and optional snippet for personal reading. Syncs with the account in v1 — still not a social signal.
@@ -186,4 +202,4 @@ _Avoid_: a per-End-user read/unread inbox (not yet modeled — future work)
 | PRD | `rooted-docs/docs/product/prd.md` |
 | API spec | `rooted-docs/docs/backend/api-specification.md` |
 | Database design | `rooted-docs/docs/backend/database-design.md` |
-| ADRs | `docs/adr/` (identity storage: ADR 0005; Admin Google: ADR 0006; direct FCM push: ADR 0007; End-user OTP/Google/Apple sign-in: ADR 0008; language follows device: ADR 0009; calendar Daily lesson & no series: ADR 0010; Devotion pool + schedule + per-locale translations: ADR 0011; Encounter streak storage: ADR 0012) |
+| ADRs | `docs/adr/` (identity storage: ADR 0005; Admin Google: ADR 0006; direct FCM push: ADR 0007; End-user OTP/Google/Apple sign-in: ADR 0008; language follows device: ADR 0009; calendar Daily lesson & no series: ADR 0010; Devotion pool + schedule + per-locale translations: ADR 0011; Encounter streak storage: ADR 0012; date-locked writes: ADR 0013; Bible index + read-time fill: ADR 0014) |
