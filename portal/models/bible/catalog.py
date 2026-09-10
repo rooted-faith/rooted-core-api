@@ -7,7 +7,7 @@ Passage remains an addressing/read concept over verses — no bible_passages tab
 
 import sqlalchemy as sa
 from sqlalchemy import Column
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from portal.libs.database.orm import ModelBase
 from portal.models.mixins import AuditCreatedAtMixin, AuditUpdatedAtMixin, SortableMixin
@@ -69,6 +69,8 @@ class BibleVerse(ModelBase, AuditCreatedAtMixin, AuditUpdatedAtMixin):
 
     book_id = Column(UUID, sa.ForeignKey(BibleBook.id, ondelete="CASCADE"), nullable=False, comment="Book ID (which also identifies the version)", index=True)
     chapter = Column(sa.Integer, nullable=False, comment="Chapter number", index=True)
-    verse = Column(sa.Integer, nullable=False, comment="Verse number", index=True)
+    verse = Column(sa.Integer, nullable=False, comment="Verse start number", index=True)
+    verse_end = Column(sa.Integer, nullable=True, comment="Merged verse end (YouVersion ev); null when unmerged")
     passage_id = Column(sa.String(50), nullable=False, comment="Passage ID, e.g., 'GEN.1.1'", index=True)
-    content = Column(sa.Text, nullable=False, comment="Verse content (version-specific)")
+    lines = Column(JSONB, nullable=True, comment="Structured verse lines; null until read-time fill")
+    search_text = Column(sa.Text, nullable=True, comment="Concatenated Scripture for later search; null until fill")
