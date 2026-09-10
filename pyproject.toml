@@ -68,10 +68,11 @@ required-version = ">=0.12.4,<0.13"
 [tool.ruff]
 target-version = "py314"
 line-length = 160
-extend-exclude = ["alembic/versions", "bible_data"]
+extend-exclude = ["bible_data"]
 
 [tool.ruff.lint]
 select = ["I"]
+exclude = ["alembic/versions"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["portal"]
