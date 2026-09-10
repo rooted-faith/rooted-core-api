@@ -150,10 +150,6 @@ User flag on fellowship content (prayer, share, etc.) with reason code — feeds
 **Sync**:
 Client ↔ server reconciliation for v1 accounts — not a second product surface; respects journal privacy rules on server.
 
-**Reonboarding flag**:
-An Admin-set signal on an **End user** requiring the App to present onboarding again on next launch, even for steps already completed. Cleared once the client finishes (or skips) the replay (ADR 0008). Distinct from a new End user's ordinary first-time onboarding, which is tracked entirely as local per-step completion state on the client and never synced to the server.
-_Avoid_: a global onboarding version bump (steps are tracked independently on the client, not versioned as a whole), re-running account provisioning logic (this only affects the client's onboarding UI)
-
 ---
 
 ### Push notifications

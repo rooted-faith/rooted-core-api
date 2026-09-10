@@ -29,9 +29,6 @@ class AppUser(ModelBase, AuditMixin, DeletedMixin):
     auth_user_id = Column(
         UUID, sa.ForeignKey(AuthUser.id, ondelete="CASCADE"), nullable=False, index=True, comment="Shared credential FK to auth.user (IDs are not shared)"
     )
-    reonboarding_requested_at = Column(
-        sa.DateTime(timezone=True), nullable=True, comment="When an Admin asked this End user to replay onboarding; cleared once the client acknowledges it"
-    )
 
 
 class AppUserPreferences(ModelBase, AuditMixin):

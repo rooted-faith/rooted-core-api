@@ -36,9 +36,3 @@ def test_auth_user_profile_remains_admin_oriented_separate_from_app_prefs() -> N
     assert AuthUserProfile.__tablename__ == "user_profile"
     assert "display_name" not in AuthUserProfile.__table__.c
     assert "bible_version" not in AuthUserProfile.__table__.c
-
-
-def test_app_user_carries_a_nullable_reonboarding_flag() -> None:
-    """ADR 0008: an Admin can ask one End user to replay onboarding; the client clears it once done."""
-    assert "reonboarding_requested_at" in AppUser.__table__.c
-    assert AppUser.__table__.c.reonboarding_requested_at.nullable is True

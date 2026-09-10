@@ -33,12 +33,6 @@ class ProvisionIdentityCommand(BaseModel):
     reminder_enabled: bool = Field(default=False)
 
 
-class RequestReonboardingCommand(BaseModel):
-    """Admin asks one End user to go through onboarding again (ADR 0008)."""
-
-    end_user_id: UUID = Field(..., description="app.user.id of the End user to flag")
-
-
 class UpdatePreferencesCommand(BaseModel):
     """Fields a signed-in End user may update on their Preferences."""
 

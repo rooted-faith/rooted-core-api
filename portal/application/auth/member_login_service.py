@@ -13,7 +13,7 @@ from portal.application.auth.mappers import normalize_user_for_token
 from portal.application.auth.member_web_app_resolver import resolve_request_app_code
 from portal.application.auth.results import MemberLoginResult, MemberProfileResult, TokenResult, UserSensitive
 from portal.config import settings
-from portal.domain.app.ports import EndUserRepositoryPort, PreferencesRepositoryPort
+from portal.domain.app.ports import PreferencesRepositoryPort
 from portal.domain.auth.member_web_app import MemberWebAppRegistry
 from portal.domain.auth.ports import UserRepositoryPort
 from portal.libs.consts.enums import AccessTokenAudType
@@ -29,7 +29,6 @@ class MemberLoginService:
     def __init__(
         self,
         user_repository: UserRepositoryPort,
-        end_user_repository: EndUserRepositoryPort,
         preferences_repository: PreferencesRepositoryPort,
         jwt_provider: JWTProvider,
         refresh_token_provider: RefreshTokenProvider,
@@ -37,7 +36,6 @@ class MemberLoginService:
         member_web_app_registry: MemberWebAppRegistry,
     ):
         self._user_repository = user_repository
-        self._end_user_repository = end_user_repository
         self._preferences_repository = preferences_repository
         self._jwt_provider = jwt_provider
         self._refresh_token_provider = refresh_token_provider
@@ -58,7 +56,6 @@ class MemberLoginService:
         """
         preferences = await self._preferences_repository.get_by_user_id(end_user_id)
         preferred_name = preferences.display_name if preferences else None
-        end_user = await self._end_user_repository.get_by_id(end_user_id)
 
         token_user = normalize_user_for_token(user)
         if preferred_name:
@@ -84,6 +81,5 @@ class MemberLoginService:
             roles=[],
             preferred_locale_id=user.preferred_locale_id,
             last_login_at=user.last_login_at,
-            reonboarding_requested_at=end_user.reonboarding_requested_at if end_user else None,
         )
         return MemberLoginResult(member=member, token=token)

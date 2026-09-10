@@ -53,9 +53,6 @@ class MemberInfo(UUIDModel):
     roles: list[str] = Field(default_factory=list, description="Roles")
     preferred_locale_id: Optional[UUID] = Field(None, description="Preferred locale id", serialization_alias="preferredLocaleId")
     last_login_at: Optional[datetime] = Field(None, description="Last login time")
-    reonboarding_requested_at: Optional[datetime] = Field(
-        None, description="Set when an Admin asked this End user to replay onboarding; clear it once done", serialization_alias="reonboardingRequestedAt"
-    )
 
 
 class MemberLoginResponse(LoginResponse):

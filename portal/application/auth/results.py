@@ -131,7 +131,6 @@ class MemberProfileResult(UUIDBaseModel):
     roles: list[str] = Field(default_factory=list, description="Roles")
     preferred_locale_id: Optional[UUID] = Field(default=None, description="Preferred locale id")
     last_login_at: Optional[datetime] = Field(default=None, description="Last login time")
-    reonboarding_requested_at: Optional[datetime] = Field(default=None, description="When an Admin asked this End user to replay onboarding (ADR 0008)")
 
 
 class MemberLoginResult(BaseModel):
