@@ -149,8 +149,11 @@ class Configuration(BaseSettings):
     # [Sentry]
     SENTRY_URL: str | None = os.getenv(key="SENTRY_URL")
 
+    # [YouVersion Platform API — bible dump and read-time fill]
+    YVP_APP_KEY: str = os.getenv(key="YVP_APP_KEY", default="")
+
     # [Logging]
-    SENSITIVE_PARAMS: set[str] = set(os.getenv(key="SENSITIVE_PARAMS", default="password,secret,api_key").split(","))
+    SENSITIVE_PARAMS: set[str] = set(os.getenv(key="SENSITIVE_PARAMS", default="password,secret,api_key,yvp_app_key").split(","))
 
     @model_validator(mode="after")
     def _load_firebase_credentials(self) -> "Configuration":

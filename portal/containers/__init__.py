@@ -52,6 +52,7 @@ class RootContainer(containers.DeclarativeContainer):
     legal_document_service = admin.content.legal_document_service
 
     bible_service = app.bible_service
+    youversion_client = app.youversion_client
     devotion_service = app.devotion_service
     end_user_provisioning_service = app.end_user_provisioning_service
     preferences_service = app.preferences_service

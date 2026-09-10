@@ -23,6 +23,7 @@ from portal.infrastructure.persistence.repositories.devotion.devotion_repository
 from portal.infrastructure.persistence.repositories.push.device_repository import DeviceRepository
 from portal.infrastructure.persistence.repositories.push.notification_repository import NotificationRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
+from portal.infrastructure.youversion.youversion_http_client import YouVersionHttpClient
 
 
 class AppContainer(containers.DeclarativeContainer):
@@ -31,6 +32,7 @@ class AppContainer(containers.DeclarativeContainer):
     core = providers.DependenciesContainer()
 
     bible_repository = providers.Factory(BibleRepository, session=core.request_session)
+    youversion_client = providers.Factory(YouVersionHttpClient, app_key=app_settings.YVP_APP_KEY)
     bible_service = providers.Factory(BibleService, bible_repository=bible_repository)
     devotion_repository = providers.Factory(DevotionRepository, session=core.request_session)
 
