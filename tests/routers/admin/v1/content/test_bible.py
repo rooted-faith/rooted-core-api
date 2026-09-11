@@ -17,7 +17,7 @@ class StubBibleService:
             book_code="JHN",
             book_name="John",
             chapter=chapter,
-            verses=[BibleVerse(passage_id="JHN.3.16", verse=16, content="For God so loved the world")],
+            verses=[BibleVerse(passage_id="JHN.3.16", verse=16, lines=None)],
         )
 
 
@@ -40,4 +40,4 @@ def test_admin_bible_routes_require_admin_devotion_read_permission():
 async def test_admin_chapter_verses_include_passage_id():
     response = await get_bible_chapter(book_id=uuid4(), chapter=3, bible_service=StubBibleService())
 
-    assert response.model_dump(mode="json", by_alias=True)["verses"] == [{"passageId": "JHN.3.16", "verse": 16, "content": "For God so loved the world"}]
+    assert response.model_dump(mode="json", by_alias=True)["verses"] == [{"passageId": "JHN.3.16", "verse": 16, "verseEnd": None, "lines": None}]

@@ -43,7 +43,7 @@ def bible_chapter_to_api(result: BibleChapterResult) -> BibleChapterDetail:
         book_code=result.book_code,
         book_name=result.book_name,
         chapter=result.chapter,
-        verses=[BibleVerse(verse=item.verse, content=item.content) for item in result.verses],
+        verses=[BibleVerse(passage_id=item.passage_id, verse=item.verse, verse_end=item.verse_end, lines=item.lines) for item in result.verses],
     )
 
 

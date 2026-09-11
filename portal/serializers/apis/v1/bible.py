@@ -2,6 +2,7 @@
 Member Bible API serializers (camelCase JSON via serialization_alias).
 """
 
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_serializer
@@ -47,8 +48,10 @@ class BibleBookList(BaseModel):
 
 
 class BibleVerse(BaseModel):
+    passage_id: str = Field(..., serialization_alias="passageId")
     verse: int = Field(...)
-    content: str = Field(...)
+    verse_end: int | None = Field(default=None, serialization_alias="verseEnd")
+    lines: list[dict[str, Any]] | None = Field(default=None)
 
 
 class BibleChapterDetail(BaseModel):
