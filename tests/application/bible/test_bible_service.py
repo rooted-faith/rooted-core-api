@@ -8,24 +8,23 @@ import pytest
 
 from portal.application.bible.bible_service import BibleService
 from portal.application.bible.commands import ListVersionsQuery, SearchVersesCommand
-from portal.domain.bible.entities import (
-    BibleBook,
-    BibleSearchHit,
-    BibleSearchPage,
-    BibleVersion,
-)
+from portal.domain.bible.entities import BibleBook, BibleSearchHit, BibleSearchPage, BibleVersion
 from portal.exceptions.responses import NotFoundException
 
 
+class StubYouVersion:
+    async def get_bible_metadata(self, bible_id: str):
+        raise NotImplementedError
+
+    async def get_bible_index(self, bible_id: str):
+        raise NotImplementedError
+
+    async def get_chapter_passage(self, bible_id: str, chapter_usfm: str):
+        raise NotImplementedError
+
+
 class StubBibleRepository:
-    def __init__(
-        self,
-        versions=None,
-        books=None,
-        chapter=None,
-        version_active=True,
-        search_page=None,
-    ):
+    def __init__(self, versions=None, books=None, chapter=None, version_active=True, search_page=None):
         self._versions = versions or []
         self._books = books or []
         self._chapter = chapter
@@ -46,8 +45,15 @@ class StubBibleRepository:
     async def fetch_chapter(self, book_id, chapter):
         return self._chapter
 
+    async def write_chapter_fill(self, book_id, chapter, fills):
+        raise NotImplementedError
+
     async def search_verses(self, q, bible_version_id, book_id, limit, offset):
         return self._search_page
+
+
+def _service(repository: StubBibleRepository) -> BibleService:
+    return BibleService(repository, StubYouVersion())
 
 
 @pytest.mark.asyncio
@@ -62,7 +68,7 @@ async def test_list_versions_returns_repository_rows():
         language_tag="zh-Hant-TW",
         is_active=True,
     )
-    service = BibleService(StubBibleRepository(versions=[version]))
+    service = _service(StubBibleRepository(versions=[version]))
     result = await service.list_versions(ListVersionsQuery())
     assert len(result.versions) == 1
     assert result.versions[0].id == version_id
@@ -70,7 +76,7 @@ async def test_list_versions_returns_repository_rows():
 
 @pytest.mark.asyncio
 async def test_list_books_raises_when_version_inactive():
-    service = BibleService(StubBibleRepository(version_active=False))
+    service = _service(StubBibleRepository(version_active=False))
     with pytest.raises(NotFoundException):
         await service.list_books(bible_version_id=uuid4())
 
@@ -78,24 +84,10 @@ async def test_list_books_raises_when_version_inactive():
 @pytest.mark.asyncio
 async def test_list_books_splits_testaments():
     books = [
-        BibleBook(
-            id=uuid4(),
-            book_code="GEN",
-            title="Genesis",
-            canon="old_testament",
-            sequence=1,
-            chapter_count=50,
-        ),
-        BibleBook(
-            id=uuid4(),
-            book_code="MAT",
-            title="Matthew",
-            canon="new_testament",
-            sequence=40,
-            chapter_count=28,
-        ),
+        BibleBook(id=uuid4(), book_code="GEN", title="Genesis", canon="old_testament", sequence=1, chapter_count=50),
+        BibleBook(id=uuid4(), book_code="MAT", title="Matthew", canon="new_testament", sequence=40, chapter_count=28),
     ]
-    service = BibleService(StubBibleRepository(books=books))
+    service = _service(StubBibleRepository(books=books))
     result = await service.list_books(bible_version_id=uuid4())
     assert len(result.old_testament) == 1
     assert len(result.new_testament) == 1
@@ -103,7 +95,7 @@ async def test_list_books_splits_testaments():
 
 @pytest.mark.asyncio
 async def test_get_chapter_raises_when_missing():
-    service = BibleService(StubBibleRepository(chapter=None))
+    service = _service(StubBibleRepository(chapter=None))
     with pytest.raises(NotFoundException):
         await service.get_chapter(book_id=uuid4(), chapter=1)
 
@@ -122,7 +114,7 @@ async def test_search_verses_delegates_to_repository():
         content="In the beginning",
     )
     page = BibleSearchPage(results=[hit], total=1, limit=10, offset=0)
-    service = BibleService(StubBibleRepository(search_page=page))
+    service = _service(StubBibleRepository(search_page=page))
     result = await service.search_verses(SearchVersesCommand(q="beginning", limit=10, offset=0))
     assert result.total == 1
     assert result.results[0].content == "In the beginning"
