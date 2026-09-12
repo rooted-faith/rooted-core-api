@@ -1,9 +1,9 @@
 """
-Import Bible data from bible_data directory to database
+Import a Bible catalog and index from bible_data directory to database.
 """
+
 import asyncio
 import json
-import sqlite3
 import time
 from pathlib import Path
 from uuid import UUID
@@ -17,7 +17,7 @@ from portal.models import BibleBook, BibleVerse, BibleVersion
 
 async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
     """
-    Import Bible data from bible_data directory to database
+    Import Bible metadata, books, and empty verse shells from a dumped index.
 
     :param bible_id: Bible ID (e.g., '1392')
     :param data_dir: Directory containing bible data (default: 'bible_data')
@@ -29,15 +29,12 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
     meta_dir = bible_dir / "meta"
     bible_json_path = meta_dir / "bible.json"
     index_json_path = meta_dir / "index.json"
-    passages_db_path = bible_dir / "passages.db"
 
     # Check if files exist
     if not bible_json_path.exists():
         raise FileNotFoundError(f"Bible metadata not found: {bible_json_path}")
     if not index_json_path.exists():
         raise FileNotFoundError(f"Bible index not found: {index_json_path}")
-    if not passages_db_path.exists():
-        raise FileNotFoundError(f"Passages database not found: {passages_db_path}")
 
     try:
         # 1. Load and import Bible Version
@@ -50,7 +47,7 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
         if bible_meta.get("organization_id"):
             try:
                 organization_id = UUID(bible_meta["organization_id"])
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 logger.warning(f"Invalid organization_id: {bible_meta.get('organization_id')}")
 
         click.echo(f"Importing Bible version: {bible_meta.get('localized_title', bible_meta.get('title'))}...")
@@ -91,11 +88,7 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
         await session.commit()
 
         # Get the version ID
-        version = await (
-            session.select(BibleVersion.id)
-            .where(BibleVersion.youversion_bible_id == str(bible_meta["id"]))
-            .fetchval()
-        )
+        version = await session.select(BibleVersion.id).where(BibleVersion.youversion_bible_id == str(bible_meta["id"])).fetchval()
         if not version:
             raise ValueError(f"Failed to get Bible version ID for {bible_meta['id']}")
 
@@ -156,12 +149,7 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
             )
 
             # Get the book ID
-            book = await (
-                session.select(BibleBook.id)
-                .where(BibleBook.bible_version_id == version)
-                .where(BibleBook.book_code == book_code)
-                .fetchval()
-            )
+            book = await session.select(BibleBook.id).where(BibleBook.bible_version_id == version).where(BibleBook.book_code == book_code).fetchval()
             if book:
                 book_id_map[book_code] = book
 
@@ -170,96 +158,51 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
         await session.commit()
         click.echo(f"Imported {len(book_id_map)} books")
 
-        # 3. Load and import Bible Verses
-        click.echo(f"Loading verses from {passages_db_path}...")
-        conn = sqlite3.connect(passages_db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-
-        # Count total verses
-        cursor.execute("SELECT COUNT(*) FROM verses")
-        total_verses = cursor.fetchone()[0]
-        click.echo(f"Found {total_verses} verses to import...")
-
-        # Fetch verses in batches
-        batch_size = 1000
-        cursor.execute("SELECT bible_id, book_id, chapter, verse, passage_id, data FROM verses ORDER BY book_id, chapter, verse")
-
+        # 3. Load and import empty Bible Verse shells from the index.
         imported_count = 0
-        batch = []
-
-        for row in cursor:
-            book_code = row["book_id"]
+        for book_data in books_data:
+            book_code = book_data["id"]
             book_id = book_id_map.get(book_code)
-            if not book_id:
-                logger.warning(f"Book not found for book_code: {book_code}, skipping verse {row['passage_id']}")
+            if book_id is None:
                 continue
 
-            # Parse verse content from JSON data
-            try:
-                verse_data = json.loads(row["data"])
-                content = verse_data.get("content", "")
-            except (json.JSONDecodeError, TypeError):
-                logger.warning(f"Failed to parse verse data for {row['passage_id']}")
-                continue
+            for chapter_data in book_data.get("chapters", []):
+                chapter_value = chapter_data.get("title", chapter_data.get("id"))
+                try:
+                    chapter = int(chapter_value)
+                except TypeError, ValueError:
+                    logger.warning(f"Invalid chapter in Bible index: {book_code}.{chapter_value}")
+                    continue
 
-            chapter = int(row["chapter"]) if row["chapter"] else None
-            verse = int(row["verse"]) if row["verse"] else None
+                for verse_data in chapter_data.get("verses", []):
+                    verse_value = verse_data.get("title", verse_data.get("id"))
+                    try:
+                        verse = int(verse_value)
+                    except TypeError, ValueError:
+                        logger.warning(f"Invalid verse in Bible index: {book_code}.{chapter}.{verse_value}")
+                        continue
 
-            if chapter is None or verse is None:
-                logger.warning(f"Invalid chapter/verse for {row['passage_id']}")
-                continue
-
-            batch.append({
-                "book_id": book_id,
-                "chapter": chapter,
-                "verse": verse,
-                "passage_id": row["passage_id"],
-                "content": content,
-            })
-
-            if len(batch) >= batch_size:
-                # Insert batch
-                for verse_data in batch:
+                    verse_shell = {
+                        "book_id": book_id,
+                        "chapter": chapter,
+                        "verse": verse,
+                        "verse_end": None,
+                        "passage_id": verse_data.get("passage_id", f"{book_code}.{chapter}.{verse}"),
+                        "lines": None,
+                        "search_text": None,
+                    }
                     await (
                         session.insert(BibleVerse)
-                        .values(**verse_data)
+                        .values(**verse_shell)
                         .on_conflict_do_update(
                             index_elements=["book_id", "passage_id"],
-                            set_={
-                                "chapter": verse_data["chapter"],
-                                "verse": verse_data["verse"],
-                                "content": verse_data["content"],
-                            },
+                            set_={"chapter": verse_shell["chapter"], "verse": verse_shell["verse"], "verse_end": None, "lines": None, "search_text": None},
                         )
                         .execute()
                     )
+                    imported_count += 1
 
-                await session.commit()
-                imported_count += len(batch)
-                click.echo(f"Imported {imported_count}/{total_verses} verses...")
-                batch = []
-
-        # Insert remaining batch
-        if batch:
-            for verse_data in batch:
-                await (
-                    session.insert(BibleVerse)
-                    .values(**verse_data)
-                    .on_conflict_do_update(
-                        index_elements=["book_id", "passage_id"],
-                        set_={
-                            "chapter": verse_data["chapter"],
-                            "verse": verse_data["verse"],
-                            "content": verse_data["content"],
-                        },
-                    )
-                    .execute()
-                )
-            await session.commit()
-            imported_count += len(batch)
-
-        conn.close()
+        await session.commit()
         click.echo(f"Successfully imported {imported_count} verses")
         click.echo(f"Bible data import completed for {bible_id}")
 
@@ -275,4 +218,3 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
 def import_bible_data_process(bible_id: str, data_dir: str = "bible_data"):
     """Synchronous entry point for importing Bible data"""
     asyncio.run(import_bible_data(bible_id=bible_id, data_dir=data_dir))
-

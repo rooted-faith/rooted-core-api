@@ -2,6 +2,7 @@
 Bible domain read models (snake_case).
 """
 
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -38,7 +39,8 @@ class BibleVerse(BaseModel):
 
     passage_id: str = Field(...)
     verse: int = Field(...)
-    content: str = Field(...)
+    verse_end: int | None = Field(default=None)
+    lines: list[dict[str, Any]] | None = Field(default=None)
 
 
 class BibleChapter(BaseModel):

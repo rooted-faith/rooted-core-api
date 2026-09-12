@@ -81,7 +81,7 @@ class BibleRepository:
             return None
 
         verses: list[BibleVerse] = await (
-            self._session.select(BibleVerseModel.passage_id, BibleVerseModel.verse, BibleVerseModel.content)
+            self._session.select(BibleVerseModel.passage_id, BibleVerseModel.verse, BibleVerseModel.verse_end, BibleVerseModel.lines)
             .where(BibleVerseModel.book_id == book_id)
             .where(BibleVerseModel.chapter == chapter)
             .order_by(BibleVerseModel.verse)
@@ -100,35 +100,4 @@ class BibleRepository:
         )
 
     async def search_verses(self, q: str, bible_version_id: UUID | None, book_id: UUID | None, limit: int, offset: int) -> BibleSearchPage:
-        query = (
-            self._session.select(
-                BibleVersionModel.id.label("bible_version_id"),
-                BibleVersionModel.youversion_bible_id,
-                BibleVersionModel.localized_title.label("bible_title"),
-                BibleVerseModel.book_id,
-                BibleBookModel.book_code,
-                BibleBookModel.title.label("book_name"),
-                BibleVerseModel.chapter,
-                BibleVerseModel.verse,
-                BibleVerseModel.content,
-            )
-            .join(BibleBookModel, BibleVerseModel.book_id == BibleBookModel.id)
-            .join(BibleVersionModel, BibleBookModel.bible_version_id == BibleVersionModel.id)
-            .where(BibleVersionModel.is_active == True)  # noqa: E712
-            .where(BibleVerseModel.content.ilike(f"%{q}%"))
-        )
-
-        if bible_version_id:
-            query = query.where(BibleVersionModel.id == bible_version_id)
-        if book_id:
-            query = query.where(BibleVerseModel.book_id == book_id)
-
-        total = await query.count()
-        results: list[BibleSearchHit] = await (
-            query.order_by(BibleVersionModel.youversion_bible_id, BibleBookModel.sequence, BibleVerseModel.chapter, BibleVerseModel.verse)
-            .limit(limit)
-            .offset(offset)
-            .fetch(as_model=BibleSearchHit)
-        )
-
-        return BibleSearchPage(results=results or [], total=total, limit=limit, offset=offset)
+        return BibleSearchPage(results=[], total=0, limit=limit, offset=offset)

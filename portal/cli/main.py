@@ -40,11 +40,11 @@ def dump_bible_cmd(bible_id: str, out: str, daily_limit: int, sleep: float, time
 @click.option("--data-dir", default="bible_data", help="Bible data directory (default: bible_data)")
 def import_bible_cmd(bible_id: str, data_dir: str):
     """
-    Import Bible data from bible_data directory to database.
+    Import a Bible catalog and index from bible_data directory to database.
     This command imports:
     1. Bible version metadata from bible_data/{bible_id}/meta/bible.json
     2. Bible books from bible_data/{bible_id}/meta/index.json
-    3. Bible verses from bible_data/{bible_id}/passages.db
+    3. Empty Bible verse shells from bible_data/{bible_id}/meta/index.json
     """
     import_bible_data_process(bible_id=bible_id, data_dir=data_dir)
 
