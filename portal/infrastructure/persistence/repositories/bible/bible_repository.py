@@ -2,6 +2,7 @@
 Bible repository — SQLAlchemy-backed Scripture reads.
 """
 
+from typing import Any
 from uuid import UUID
 
 from portal.domain.bible.entities import BibleBook, BibleChapter, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
@@ -98,6 +99,17 @@ class BibleRepository:
             chapter=chapter,
             verses=verses or [],
         )
+
+    async def write_chapter_fill(self, book_id: UUID, chapter: int, fills: list[dict[str, Any]]) -> None:
+        for fill in fills:
+            await (
+                self._session.update(BibleVerseModel)
+                .values(verse_end=fill.get("verse_end"), lines=fill["lines"], search_text=fill["search_text"])
+                .where(BibleVerseModel.book_id == book_id)
+                .where(BibleVerseModel.chapter == chapter)
+                .where(BibleVerseModel.verse == fill["verse"])
+                .execute()
+            )
 
     async def search_verses(self, q: str, bible_version_id: UUID | None, book_id: UUID | None, limit: int, offset: int) -> BibleSearchPage:
         return BibleSearchPage(results=[], total=0, limit=limit, offset=offset)
