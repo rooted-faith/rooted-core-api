@@ -4,14 +4,7 @@ Bible application results — aliases of domain read models.
 
 from pydantic import BaseModel, Field
 
-from portal.domain.bible.entities import (
-    BibleBook,
-    BibleChapter,
-    BibleSearchHit,
-    BibleSearchPage,
-    BibleVerse,
-    BibleVersion,
-)
+from portal.domain.bible.entities import BibleBook, BibleChapter, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
 
 BibleVersionResult = BibleVersion
 BibleBookResult = BibleBook

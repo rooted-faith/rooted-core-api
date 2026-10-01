@@ -11,6 +11,7 @@ from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.auth.app_google_auth_service import AppGoogleAuthService
 from portal.application.auth.member_login_service import MemberLoginService
 from portal.application.bible.bible_service import BibleService
+from portal.application.bible.chapter_fill_gate import ChapterFillGate
 from portal.application.devotion.devotion_service import DevotionService
 from portal.application.push.push_service import PushService
 from portal.config import settings as app_settings
@@ -33,7 +34,8 @@ class AppContainer(containers.DeclarativeContainer):
 
     bible_repository = providers.Factory(BibleRepository, session=core.request_session)
     youversion_client = providers.Factory(YouVersionHttpClient, app_key=app_settings.YVP_APP_KEY)
-    bible_service = providers.Factory(BibleService, bible_repository=bible_repository)
+    chapter_fill_gate = providers.Singleton(ChapterFillGate)
+    bible_service = providers.Factory(BibleService, bible_repository=bible_repository, youversion=youversion_client, chapter_fill_gate=chapter_fill_gate)
     devotion_repository = providers.Factory(DevotionRepository, session=core.request_session)
 
     user_repository = providers.Factory(UserRepository, session=core.request_session)
