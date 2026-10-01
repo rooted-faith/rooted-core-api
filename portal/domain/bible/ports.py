@@ -23,6 +23,9 @@ class BibleRepositoryPort(Protocol):
     async def fetch_chapter(self, book_id: UUID, chapter: int) -> BibleChapter | None:
         """Load chapter metadata and verses; None when book or version missing."""
 
+    async def find_book_id(self, bible_version_id: UUID, book_code: str) -> UUID | None:
+        """Resolve a version-specific book id from a version-independent book code; None when not found or version inactive."""
+
     async def write_chapter_fill(self, book_id: UUID, chapter: int, fills: list[dict[str, Any]]) -> None:
         """Persist parsed verse bodies for one chapter (all-or-nothing)."""
 

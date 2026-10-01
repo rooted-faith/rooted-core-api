@@ -91,3 +91,10 @@ class BibleSearchResponse(BaseModel):
     total: int = Field(...)
     limit: int = Field(...)
     offset: int = Field(...)
+
+
+class BiblePassageDetail(BaseModel):
+    start: str = Field(...)
+    end: str = Field(...)
+    ref: str = Field(...)
+    verses: list[BibleVerse] = Field(default_factory=list)

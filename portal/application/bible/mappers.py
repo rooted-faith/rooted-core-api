@@ -2,7 +2,7 @@
 Map bible application results to API serializers.
 """
 
-from portal.application.bible.results import BibleBookListResult, BibleChapterResult, BibleSearchPageResult, BibleVersionListResult
+from portal.application.bible.results import BibleBookListResult, BibleChapterResult, BiblePassageResult, BibleSearchPageResult, BibleVersionListResult
 from portal.serializers.admin.v1.bible import (
     AdminBibleBook,
     AdminBibleBookList,
@@ -15,6 +15,7 @@ from portal.serializers.apis.v1.bible import (
     BibleBook,
     BibleBookList,
     BibleChapterDetail,
+    BiblePassageDetail,
     BibleSearchResponse,
     BibleSearchResult,
     BibleVerse,
@@ -43,6 +44,15 @@ def bible_chapter_to_api(result: BibleChapterResult) -> BibleChapterDetail:
         book_code=result.book_code,
         book_name=result.book_name,
         chapter=result.chapter,
+        verses=[BibleVerse(passage_id=item.passage_id, verse=item.verse, verse_end=item.verse_end, lines=item.lines) for item in result.verses],
+    )
+
+
+def bible_passage_to_api(result: BiblePassageResult) -> BiblePassageDetail:
+    return BiblePassageDetail(
+        start=result.start,
+        end=result.end,
+        ref=result.ref,
         verses=[BibleVerse(passage_id=item.passage_id, verse=item.verse, verse_end=item.verse_end, lines=item.lines) for item in result.verses],
     )
 

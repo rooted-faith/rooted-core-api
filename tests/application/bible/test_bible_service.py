@@ -7,8 +7,9 @@ from uuid import uuid4
 import pytest
 
 from portal.application.bible.bible_service import BibleService
-from portal.application.bible.commands import ListVersionsQuery, SearchVersesCommand
-from portal.domain.bible.entities import BibleBook, BibleSearchHit, BibleSearchPage, BibleVersion
+from portal.application.bible.commands import ListVersionsQuery, ReadPassageQuery, SearchVersesCommand
+from portal.domain.bible.constants import BibleErrorCode
+from portal.domain.bible.entities import BibleBook, BibleChapter, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
 from portal.exceptions.responses import NotFoundException
 
 
@@ -24,12 +25,14 @@ class StubYouVersion:
 
 
 class StubBibleRepository:
-    def __init__(self, versions=None, books=None, chapter=None, version_active=True, search_page=None):
+    def __init__(self, versions=None, books=None, chapter=None, chapters=None, version_active=True, search_page=None, book_ids_by_code=None):
         self._versions = versions or []
         self._books = books or []
         self._chapter = chapter
+        self._chapters = chapters or {}
         self._version_active = version_active
         self._search_page = search_page or BibleSearchPage(results=[], total=0, limit=20, offset=0)
+        self._book_ids_by_code = book_ids_by_code or {}
 
     async def fetch_active_versions(self, language=None):
         if language:
@@ -43,7 +46,12 @@ class StubBibleRepository:
         return self._books
 
     async def fetch_chapter(self, book_id, chapter):
+        if chapter in self._chapters:
+            return self._chapters[chapter]
         return self._chapter
+
+    async def find_book_id(self, bible_version_id, book_code):
+        return self._book_ids_by_code.get(book_code)
 
     async def write_chapter_fill(self, book_id, chapter, fills):
         raise NotImplementedError
@@ -118,3 +126,90 @@ async def test_search_verses_delegates_to_repository():
     result = await service.search_verses(SearchVersesCommand(q="beginning", limit=10, offset=0))
     assert result.total == 1
     assert result.results[0].content == "In the beginning"
+
+
+def _chapter(book_id, chapter: int, verses: list[BibleVerse]) -> BibleChapter:
+    return BibleChapter(
+        bible_version_id=uuid4(),
+        youversion_bible_id="1392",
+        bible_title="和合本",
+        book_id=book_id,
+        book_code="GEN",
+        book_name="Genesis",
+        chapter=chapter,
+        verses=verses,
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_when_version_inactive():
+    service = _service(StubBibleRepository(version_active=False))
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.1.1", passage_end="GEN.1.1"))
+    assert exc_info.value.error_code == BibleErrorCode.VERSION_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_when_reference_malformed():
+    service = _service(StubBibleRepository())
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="not-a-ref", passage_end="GEN.1.1"))
+    assert exc_info.value.error_code == BibleErrorCode.PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_when_range_crosses_books():
+    service = _service(StubBibleRepository())
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.50.26", passage_end="EXO.1.1"))
+    assert exc_info.value.error_code == BibleErrorCode.PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_when_book_missing_in_version():
+    service = _service(StubBibleRepository(book_ids_by_code={}))
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.1.1", passage_end="GEN.1.1"))
+    assert exc_info.value.error_code == BibleErrorCode.PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_read_passage_returns_cited_verses_across_chapters():
+    book_id = uuid4()
+    chapter_1 = _chapter(
+        book_id, 1, [BibleVerse(passage_id="GEN.1.31", verse=31, lines=[{"type": "line", "fragments": [{"type": "text", "text": "It was very good"}]}])]
+    )
+    chapter_2 = _chapter(
+        book_id, 2, [BibleVerse(passage_id="GEN.2.1", verse=1, lines=[{"type": "line", "fragments": [{"type": "text", "text": "The heavens were finished"}]}])]
+    )
+    repository = StubBibleRepository(chapters={1: chapter_1, 2: chapter_2}, book_ids_by_code={"GEN": book_id})
+    service = _service(repository)
+
+    result = await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.1.31", passage_end="GEN.2.1"))
+
+    assert result.start == "GEN.1.31"
+    assert result.end == "GEN.2.1"
+    assert result.ref == "Genesis 1:31–2:1"
+    assert [verse.passage_id for verse in result.verses] == ["GEN.1.31", "GEN.2.1"]
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_without_fetching_chapters_when_span_is_absurd():
+    repository = StubBibleRepository(book_ids_by_code={"GEN": uuid4()})
+    service = _service(repository)
+
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.1.1", passage_end="GEN.999999999.1"))
+    assert exc_info.value.error_code == BibleErrorCode.PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_read_passage_raises_when_verse_range_unresolved():
+    book_id = uuid4()
+    chapter_1 = _chapter(book_id, 1, [BibleVerse(passage_id="GEN.1.1", verse=1, lines=[{"type": "line", "fragments": []}])])
+    repository = StubBibleRepository(chapters={1: chapter_1}, book_ids_by_code={"GEN": book_id})
+    service = _service(repository)
+
+    with pytest.raises(NotFoundException) as exc_info:
+        await service.read_passage(ReadPassageQuery(bible_version_id=uuid4(), passage_start="GEN.1.99", passage_end="GEN.1.99"))
+    assert exc_info.value.error_code == BibleErrorCode.PASSAGE_NOT_FOUND

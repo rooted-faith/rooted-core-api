@@ -78,3 +78,12 @@ class BibleSearchPage(BaseModel):
     total: int = Field(default=0)
     limit: int = Field(...)
     offset: int = Field(...)
+
+
+class BiblePassage(BaseModel):
+    """A resolved, version-specific verse range."""
+
+    start: str = Field(...)
+    end: str = Field(...)
+    ref: str = Field(...)
+    verses: list[BibleVerse] = Field(default_factory=list)

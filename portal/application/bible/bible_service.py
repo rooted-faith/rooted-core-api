@@ -2,19 +2,28 @@
 Bible application service.
 """
 
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import UUID
 
 from portal.application.bible.chapter_fill_gate import ChapterFillGate
-from portal.application.bible.commands import ListVersionsQuery, SearchVersesCommand
+from portal.application.bible.commands import ListVersionsQuery, ReadPassageQuery, SearchVersesCommand
 from portal.application.bible.parse_chapter_html import ChapterHtmlParseError, parse_chapter_html
-from portal.application.bible.results import BibleBookListResult, BibleBookResult, BibleChapterResult, BibleSearchPageResult, BibleVersionListResult
-from portal.domain.bible.entities import BibleChapter
+from portal.application.bible.results import (
+    BibleBookListResult,
+    BibleBookResult,
+    BibleChapterResult,
+    BiblePassageResult,
+    BibleSearchPageResult,
+    BibleVersionListResult,
+)
+from portal.domain.bible.constants import BibleErrorCode
+from portal.domain.bible.entities import BibleChapter, BibleVerse
 from portal.domain.bible.ports import BibleRepositoryPort, YouVersionPort
 from portal.exceptions.responses import ApiBaseException, NotFoundException
 from portal.libs.tracing.distributed_trace import distributed_trace
 
 _DEFAULT_CHAPTER_FILL_GATE = ChapterFillGate()
+_MAX_PASSAGE_CHAPTER_SPAN = 150  # Psalms, the longest book, has 150 chapters
 
 
 class BibleService:
@@ -51,6 +60,44 @@ class BibleService:
             if row is None or _chapter_needs_fill(row):
                 raise ApiBaseException(status_code=502, detail="Failed to fill Scripture chapter")
         return row
+
+    @distributed_trace()
+    async def read_passage(self, query: ReadPassageQuery) -> BiblePassageResult:
+        if not await self._repository.version_is_active(query.bible_version_id):
+            raise NotFoundException(detail=f"Bible version {query.bible_version_id} not found or inactive", error_code=BibleErrorCode.VERSION_NOT_FOUND)
+
+        start_ref = _parse_passage_ref(query.passage_start)
+        end_ref = _parse_passage_ref(query.passage_end)
+        if start_ref is None or end_ref is None or start_ref.book_code != end_ref.book_code:
+            raise NotFoundException(detail="Passage reference could not be resolved", error_code=BibleErrorCode.PASSAGE_NOT_FOUND)
+        if end_ref.chapter - start_ref.chapter > _MAX_PASSAGE_CHAPTER_SPAN:
+            raise NotFoundException(detail="Passage reference could not be resolved", error_code=BibleErrorCode.PASSAGE_NOT_FOUND)
+
+        book_id = await self._repository.find_book_id(query.bible_version_id, start_ref.book_code)
+        if book_id is None:
+            raise NotFoundException(detail="Passage reference could not be resolved", error_code=BibleErrorCode.PASSAGE_NOT_FOUND)
+
+        chosen: list[tuple[int, BibleVerse]] = []
+        book_name: str | None = None
+        for chapter in range(start_ref.chapter, end_ref.chapter + 1):
+            filled = await self.get_chapter(book_id, chapter)
+            book_name = filled.book_name
+            chosen.extend(
+                (chapter, verse)
+                for verse in filled.verses
+                if _verse_is_cited(verse, chapter, start_ref.chapter, start_ref.verse, end_ref.chapter, end_ref.verse)
+            )
+
+        if not chosen or book_name is None:
+            raise NotFoundException(detail="Passage reference could not be resolved", error_code=BibleErrorCode.PASSAGE_NOT_FOUND)
+
+        first_chapter, first_verse = chosen[0]
+        last_chapter, last_verse = chosen[-1]
+        ref = f"{book_name} {first_chapter}:{first_verse.verse}"
+        if (last_chapter, last_verse.verse) != (first_chapter, first_verse.verse):
+            ref += f"–{last_chapter}:{last_verse.verse}"
+
+        return BiblePassageResult(start=query.passage_start, end=query.passage_end, ref=ref, verses=[verse for _, verse in chosen])
 
     @distributed_trace()
     async def search_verses(self, command: SearchVersesCommand) -> BibleSearchPageResult:
@@ -92,3 +139,28 @@ class BibleService:
 
 def _chapter_needs_fill(chapter: BibleChapter) -> bool:
     return any(verse.lines is None for verse in chapter.verses)
+
+
+class _PassageRef(NamedTuple):
+    book_code: str
+    chapter: int
+    verse: int
+
+
+def _parse_passage_ref(passage_ref: str) -> _PassageRef | None:
+    parts = passage_ref.split(".")
+    if len(parts) != 3:
+        return None
+    book_code, chapter_str, verse_str = parts
+    if not book_code or not chapter_str.isdigit() or not verse_str.isdigit():
+        return None
+    return _PassageRef(book_code=book_code, chapter=int(chapter_str), verse=int(verse_str))
+
+
+def _verse_is_cited(verse: BibleVerse, chapter: int, start_chapter: int, start_verse: int, end_chapter: int, end_verse: int) -> bool:
+    cited_start = start_verse if chapter == start_chapter else 1
+    cited_end = end_verse if chapter == end_chapter else None
+    verse_finish = verse.verse_end if verse.verse_end is not None else verse.verse
+    if verse_finish < cited_start:
+        return False
+    return cited_end is None or verse.verse <= cited_end
