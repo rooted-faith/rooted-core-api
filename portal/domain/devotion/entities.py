@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from portal.domain.bible.entities import BibleVerse
 from portal.domain.common.mixins import UUIDModel
 from portal.domain.devotion.constants import DevotionStatus
 
@@ -11,7 +12,19 @@ class Passage(BaseModel):
     start: str
     end: str
     ref: str
-    verses: list[str] = Field(default_factory=list)
+    verses: list[BibleVerse] = Field(default_factory=list)
+
+
+class ScheduledDailyLesson(BaseModel):
+    """Daily lesson address and authored text, without Scripture bodies."""
+
+    date: date
+    passage_start: str
+    passage_end: str
+    book_id: UUID | None
+    reflect: list[str] | None = None
+    apply: str | None = None
+    pray: str | None = None
 
 
 class AnonymousDailyLesson(BaseModel):

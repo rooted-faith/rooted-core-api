@@ -2,12 +2,14 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from portal.serializers.apis.v1.bible import BibleVerse
+
 
 class PassageResponse(BaseModel):
     start: str
     end: str
     ref: str
-    verses: list[str] = Field(default_factory=list)
+    verses: list[BibleVerse] = Field(default_factory=list)
 
 
 class AnonymousDailyLessonResponse(BaseModel):
