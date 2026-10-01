@@ -21,3 +21,11 @@ class SearchVersesCommand(BaseModel):
     book_id: UUID | None = Field(default=None)
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
+
+
+class ReadPassageQuery(BaseModel):
+    """Resolve a version-independent Passage range in a chosen Bible version."""
+
+    bible_version_id: UUID = Field(...)
+    passage_start: str = Field(...)
+    passage_end: str = Field(...)

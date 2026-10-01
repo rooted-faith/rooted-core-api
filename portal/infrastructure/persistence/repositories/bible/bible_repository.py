@@ -100,6 +100,16 @@ class BibleRepository:
             verses=verses or [],
         )
 
+    async def find_book_id(self, bible_version_id: UUID, book_code: str) -> UUID | None:
+        return await (
+            self._session.select(BibleBookModel.id)
+            .join(BibleVersionModel, BibleBookModel.bible_version_id == BibleVersionModel.id)
+            .where(BibleVersionModel.id == bible_version_id)
+            .where(BibleVersionModel.is_active == True)  # noqa: E712
+            .where(BibleBookModel.book_code == book_code)
+            .fetchval()
+        )
+
     async def write_chapter_fill(self, book_id: UUID, chapter: int, fills: list[dict[str, Any]]) -> None:
         for fill in fills:
             await (

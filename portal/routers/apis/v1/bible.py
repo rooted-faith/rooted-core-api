@@ -1,6 +1,7 @@
 """
 Bible API Router
 """
+
 from typing import Annotated
 from uuid import UUID
 
@@ -9,20 +10,16 @@ from fastapi import APIRouter, Depends, Query
 from starlette import status
 
 from portal.application.bible.bible_service import BibleService
-from portal.application.bible.commands import ListVersionsQuery, SearchVersesCommand
+from portal.application.bible.commands import ListVersionsQuery, ReadPassageQuery, SearchVersesCommand
 from portal.application.bible.mappers import (
     bible_book_list_to_api,
     bible_chapter_to_api,
+    bible_passage_to_api,
     bible_search_page_to_api,
     bible_version_list_to_api,
 )
 from portal.container import Container
-from portal.serializers.apis.v1.bible import (
-    BibleBookList,
-    BibleChapterDetail,
-    BibleSearchResponse,
-    BibleVersionList,
-)
+from portal.serializers.apis.v1.bible import BibleBookList, BibleChapterDetail, BiblePassageDetail, BibleSearchResponse, BibleVersionList
 
 router = APIRouter()
 
@@ -55,10 +52,7 @@ async def get_bible_versions(
     description="Get list of bible books for a specific version",
 )
 @inject
-async def get_bible_books(
-    bible_version_id: UUID,
-    bible_service: BibleService = Depends(Provide[Container.bible_service]),
-) -> BibleBookList:
+async def get_bible_books(bible_version_id: UUID, bible_service: BibleService = Depends(Provide[Container.bible_service])) -> BibleBookList:
     result = await bible_service.list_books(bible_version_id=bible_version_id)
     return bible_book_list_to_api(result)
 
@@ -73,13 +67,29 @@ async def get_bible_books(
     description="Get bible chapter content",
 )
 @inject
-async def get_bible_chapter(
-    book_id: UUID,
-    chapter: int,
-    bible_service: BibleService = Depends(Provide[Container.bible_service]),
-) -> BibleChapterDetail:
+async def get_bible_chapter(book_id: UUID, chapter: int, bible_service: BibleService = Depends(Provide[Container.bible_service])) -> BibleChapterDetail:
     result = await bible_service.get_chapter(book_id=book_id, chapter=chapter)
     return bible_chapter_to_api(result)
+
+
+@router.get(
+    path="/versions/{bible_version_id}/passages",
+    response_model=BiblePassageDetail,
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK,
+    operation_id="get_bible_passage",
+    summary="Get a Bible passage in a chosen version",
+    description="Resolve a version-independent Passage range (start/end references) to cited verses in the chosen Bible version",
+)
+@inject
+async def get_bible_passage(
+    bible_version_id: UUID,
+    start: Annotated[str, Query(description="Passage start reference, e.g. 'GEN.1.1'")],
+    end: Annotated[str, Query(description="Passage end reference, e.g. 'GEN.1.31'")],
+    bible_service: BibleService = Depends(Provide[Container.bible_service]),
+) -> BiblePassageDetail:
+    result = await bible_service.read_passage(ReadPassageQuery(bible_version_id=bible_version_id, passage_start=start, passage_end=end))
+    return bible_passage_to_api(result)
 
 
 @router.get(
@@ -100,13 +110,5 @@ async def search_bible_verses(
     offset: Annotated[int, Query(description="Result offset", ge=0)] = 0,
     bible_service: BibleService = Depends(Provide[Container.bible_service]),
 ) -> BibleSearchResponse:
-    result = await bible_service.search_verses(
-        SearchVersesCommand(
-            q=q,
-            bible_version_id=bible_version_id,
-            book_id=book_id,
-            limit=limit,
-            offset=offset,
-        )
-    )
+    result = await bible_service.search_verses(SearchVersesCommand(q=q, bible_version_id=bible_version_id, book_id=book_id, limit=limit, offset=offset))
     return bible_search_page_to_api(result)
