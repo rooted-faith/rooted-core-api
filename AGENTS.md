@@ -345,11 +345,11 @@ Pick **`application/bible/`** as the reference vertical slice for new domains.
 
 ### Issue tracker
 
-Issues live in this repo's GitHub Issues (via `gh`). See `docs/agents/issue-tracker.md`.
+Issues live in Linear (team `ROO`, via the Linear GraphQL API). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-See `docs/agents/triage-labels.md`.
+Default label names: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
