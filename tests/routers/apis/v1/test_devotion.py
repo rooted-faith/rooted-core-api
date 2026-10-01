@@ -26,7 +26,8 @@ class StubDevotionService:
             )
         return AnonymousDailyLesson(date=lesson_date, passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=["Verse text"]))
 
-    async def record_encounter(self, *, auth_user_id, encounter_date):
+    async def record_encounter(self, *, auth_user_id, encounter_date, time_zone):
+        assert time_zone == "America/Toronto"
         return EncounterResult(date=encounter_date, current_streak=5, longest_streak=12, welcome_back=False)
 
     async def get_rhythm(self, *, auth_user_id, reader_date):
@@ -151,6 +152,7 @@ async def test_unaccepted_default_locale_is_not_used_as_translation_fallback(mon
 @pytest.mark.asyncio
 async def test_record_encounter_response_uses_camel_case_without_data_wrapper(monkeypatch):
     stub_request_context(monkeypatch, UserContext(user_id="11111111-1111-1111-1111-111111111111"))
+    monkeypatch.setattr(devotion_router_module, "get_request_context", lambda: RequestContext(headers=HeaderInfo(time_zone="America/Toronto")))
 
     response = await record_encounter(request=EncounterRequest(date=date(2026, 9, 8)), devotion_service=StubDevotionService())
     payload = response.model_dump(mode="json", by_alias=True)

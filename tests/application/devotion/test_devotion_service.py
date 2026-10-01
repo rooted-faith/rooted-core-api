@@ -19,6 +19,7 @@ class StubDevotionRepository:
         self.streak = streak
         self.recent_dates = recent_dates or []
         self.saved_streak = None
+        self.inserted_dates = []
         self.notes = notes or {}
 
     async def fetch_daily_lesson(self, lesson_date, locale_id, locale_code, include_authored_sections):
@@ -28,6 +29,7 @@ class StubDevotionRepository:
         return self.scheduled
 
     async def insert_encounter_day(self, user_id, encounter_date):
+        self.inserted_dates.append(encounter_date)
         return self.inserted
 
     async def get_encounter_streak(self, user_id):
@@ -140,9 +142,9 @@ async def test_record_encounter_starts_a_new_streak_after_a_missed_day():
     end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
     previous_streak = EncounterStreak(user_id=end_user.id, longest_streak=4, current_streak_length=4, last_encounter_date=date(2026, 9, 6))
     repository = StubDevotionRepository(streak=previous_streak)
-    service = DevotionService(repository, StubEndUserRepository(end_user))
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
 
-    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8))
+    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8), time_zone="America/Toronto")
 
     assert result.current_streak == 1
     assert result.longest_streak == 4
@@ -157,14 +159,97 @@ async def test_record_encounter_is_idempotent_for_the_same_day():
     end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
     existing_streak = EncounterStreak(user_id=end_user.id, longest_streak=5, current_streak_length=5, last_encounter_date=date(2026, 9, 8))
     repository = StubDevotionRepository(inserted=False, streak=existing_streak)
-    service = DevotionService(repository, StubEndUserRepository(end_user))
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
 
-    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8))
+    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8), time_zone="America/Toronto")
 
     assert result.current_streak == 5
     assert result.longest_streak == 5
     assert result.welcome_back is False
     assert repository.saved_streak is None
+
+
+@pytest.mark.asyncio
+async def test_record_encounter_rejects_a_past_date_without_advancing_the_streak():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    previous_streak = EncounterStreak(user_id=end_user.id, longest_streak=4, current_streak_length=4, last_encounter_date=date(2026, 9, 6))
+    repository = StubDevotionRepository(streak=previous_streak)
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
+
+    with pytest.raises(BadRequestException) as error:
+        await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 7), time_zone="America/Toronto")
+
+    assert error.value.status_code == 400
+    assert error.value.error_code == DevotionErrorCode.ENCOUNTER_DATE_NOT_TODAY
+    assert repository.saved_streak is None
+    assert repository.inserted_dates == []
+
+
+@pytest.mark.asyncio
+async def test_record_encounter_rejects_a_future_date_without_advancing_the_streak():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    repository = StubDevotionRepository()
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
+
+    with pytest.raises(BadRequestException) as error:
+        await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 9), time_zone="America/Toronto")
+
+    assert error.value.status_code == 400
+    assert error.value.error_code == DevotionErrorCode.ENCOUNTER_DATE_NOT_TODAY
+    assert repository.saved_streak is None
+    assert repository.inserted_dates == []
+
+
+@pytest.mark.asyncio
+async def test_record_encounter_rejects_a_missing_time_zone_without_writing():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    repository = StubDevotionRepository()
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
+
+    with pytest.raises(BadRequestException) as error:
+        await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8), time_zone=None)
+
+    assert error.value.status_code == 400
+    assert error.value.error_code == DevotionErrorCode.INVALID_TIME_ZONE
+    assert repository.inserted_dates == []
+
+
+@pytest.mark.asyncio
+async def test_record_encounter_rejects_an_invalid_time_zone_name_without_writing():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    repository = StubDevotionRepository()
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
+
+    with pytest.raises(BadRequestException) as error:
+        await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8), time_zone="Not/AZone")
+
+    assert error.value.status_code == 400
+    assert error.value.error_code == DevotionErrorCode.INVALID_TIME_ZONE
+    assert repository.inserted_dates == []
+
+
+@pytest.mark.asyncio
+async def test_record_encounter_uses_the_header_zone_when_it_differs_from_the_server_date():
+    auth_user_id = UUID("11111111-1111-1111-1111-111111111111")
+    end_user = EndUser(id=UUID("22222222-2222-2222-2222-222222222222"), auth_user_id=auth_user_id)
+    repository = StubDevotionRepository()
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 10, 2, 30, tzinfo=timezone.utc))
+
+    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 9), time_zone="America/Toronto")
+
+    assert result.date == date(2026, 9, 9)
+    assert result.current_streak == 1
+    assert repository.inserted_dates == [date(2026, 9, 9)]
+
+    with pytest.raises(BadRequestException) as error:
+        await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 10), time_zone="America/Toronto")
+
+    assert error.value.error_code == DevotionErrorCode.ENCOUNTER_DATE_NOT_TODAY
+    assert repository.inserted_dates == [date(2026, 9, 9)]
 
 
 @pytest.mark.asyncio
@@ -174,9 +259,9 @@ async def test_record_encounter_extends_current_and_longest_streak_from_yesterda
     repository = StubDevotionRepository(
         streak=EncounterStreak(user_id=end_user.id, longest_streak=4, current_streak_length=4, last_encounter_date=date(2026, 9, 7))
     )
-    service = DevotionService(repository, StubEndUserRepository(end_user))
+    service = DevotionService(repository, StubEndUserRepository(end_user), now_provider=lambda: datetime(2026, 9, 8, 16, 0, tzinfo=timezone.utc))
 
-    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8))
+    result = await service.record_encounter(auth_user_id=auth_user_id, encounter_date=date(2026, 9, 8), time_zone="America/Toronto")
 
     assert result.current_streak == 5
     assert result.longest_streak == 5
