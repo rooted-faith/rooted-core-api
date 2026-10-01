@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 bible_data
+.codex
 
 ### direnv template
 .direnv
