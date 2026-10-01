@@ -97,7 +97,10 @@ async def get_daily_lesson(
 )
 @inject
 async def record_encounter(request: EncounterRequest, devotion_service: DevotionService = Depends(Provide[Container.devotion_service])) -> EncounterResponse:
-    result = await devotion_service.record_encounter(auth_user_id=_auth_user_id(), encounter_date=request.date)
+    request_context = get_request_context()
+    result = await devotion_service.record_encounter(
+        auth_user_id=_auth_user_id(), encounter_date=request.date, time_zone=request_context.headers.time_zone if request_context else None
+    )
     return encounter_result_to_api(result)
 
 

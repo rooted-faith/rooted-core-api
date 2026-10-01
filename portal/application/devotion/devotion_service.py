@@ -248,7 +248,12 @@ class DevotionService:
         return self._now_provider().astimezone(zone).date()
 
     @distributed_trace()
-    async def record_encounter(self, *, auth_user_id: UUID, encounter_date: date) -> EncounterResult:
+    async def record_encounter(self, *, auth_user_id: UUID, encounter_date: date, time_zone: str | None) -> EncounterResult:
+        current_local_date = self._current_local_date(time_zone)
+        if encounter_date != current_local_date:
+            raise BadRequestException(
+                detail="Encounter day must be recorded for the caller's current local date", error_code=DevotionErrorCode.ENCOUNTER_DATE_NOT_TODAY
+            )
         end_user_id = await self._get_end_user_id(auth_user_id)
         inserted = await self._repository.insert_encounter_day(end_user_id, encounter_date)
         streak = await self._repository.get_encounter_streak(end_user_id)
