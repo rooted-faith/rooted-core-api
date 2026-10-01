@@ -4,13 +4,13 @@ from uuid import UUID
 import sqlalchemy as sa
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, DailyLessonSchedule, EncounterStreak, LessonNote, Passage
+from portal.domain.devotion.entities import DailyLessonSchedule, EncounterStreak, LessonNote, ScheduledDailyLesson
 from portal.domain.devotion.entities import Devotion as DevotionEntity
 from portal.domain.devotion.entities import DevotionTranslation as DevotionTranslationEntity
 from portal.domain.locale.entities import Locale
 from portal.libs.database import Session
 from portal.libs.database.execute_result import affected_rows
-from portal.models import BibleBook, BibleVerse, BibleVersion, Devotion, DevotionDailyLessonSchedule, DevotionTranslation, EncounterDay, SystemLocale
+from portal.models import BibleBook, BibleVersion, Devotion, DevotionDailyLessonSchedule, DevotionTranslation, EncounterDay, SystemLocale
 from portal.models import EncounterStreak as EncounterStreakModel
 from portal.models import LessonNote as LessonNoteModel
 
@@ -241,7 +241,7 @@ class DevotionRepository:
 
     async def fetch_daily_lesson(
         self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool
-    ) -> AnonymousDailyLesson | DailyLesson | None:
+    ) -> ScheduledDailyLesson | None:
         if locale_id is None or locale_code is None:
             return None
 
@@ -261,50 +261,22 @@ class DevotionRepository:
         if not scheduled_passage:
             return None
 
-        start_book, start_chapter, start_verse = self._parse_passage_id(scheduled_passage["passage_start"])
-        end_book, end_chapter, end_verse = self._parse_passage_id(scheduled_passage["passage_end"])
-        if start_book != end_book:
-            return None
-
-        bible_version_id = await (
-            self._session.select(BibleVersion.id)
+        start_book = scheduled_passage["passage_start"].split(".", maxsplit=1)[0]
+        book_id = await (
+            self._session.select(BibleBook.id)
+            .join(BibleVersion, BibleBook.bible_version_id == BibleVersion.id)
             .where(BibleVersion.is_active == True)  # noqa: E712
             .where(BibleVersion.language_tag.ilike(f"{language}%"))
+            .where(BibleBook.book_code == start_book)
             .order_by(BibleVersion.youversion_bible_id)
             .fetchval()
         )
-        if bible_version_id is None:
-            return None
-
-        verses = await (
-            self._session.select(BibleBook.title.label("book_name"), BibleVerse.chapter, BibleVerse.verse, BibleVerse.content)
-            .join(BibleBook, BibleVerse.book_id == BibleBook.id)
-            .join(BibleVersion, BibleBook.bible_version_id == BibleVersion.id)
-            .where(BibleVersion.id == bible_version_id)
-            .where(BibleBook.book_code == start_book)
-            .where(sa.or_(BibleVerse.chapter > start_chapter, sa.and_(BibleVerse.chapter == start_chapter, BibleVerse.verse >= start_verse)))
-            .where(sa.or_(BibleVerse.chapter < end_chapter, sa.and_(BibleVerse.chapter == end_chapter, BibleVerse.verse <= end_verse)))
-            .order_by(BibleVersion.youversion_bible_id, BibleVerse.chapter, BibleVerse.verse)
-            .fetch()
+        return ScheduledDailyLesson(
+            date=lesson_date,
+            passage_start=scheduled_passage["passage_start"],
+            passage_end=scheduled_passage["passage_end"],
+            book_id=book_id,
+            reflect=scheduled_passage["reflect"] if include_authored_sections else None,
+            apply=scheduled_passage["apply"] if include_authored_sections else None,
+            pray=scheduled_passage["pray"] if include_authored_sections else None,
         )
-        if not verses:
-            return None
-
-        first = verses[0]
-        last = verses[-1]
-        verse_ref = f"{first['book_name']} {first['chapter']}:{first['verse']}"
-        if (last["chapter"], last["verse"]) != (first["chapter"], first["verse"]):
-            verse_ref += f"–{last['chapter']}:{last['verse']}"
-        passage = Passage(
-            start=scheduled_passage["passage_start"], end=scheduled_passage["passage_end"], ref=verse_ref, verses=[row["content"] for row in verses]
-        )
-        if include_authored_sections:
-            return DailyLesson(
-                date=lesson_date, passage=passage, reflect=scheduled_passage["reflect"], apply=scheduled_passage["apply"], pray=scheduled_passage["pray"]
-            )
-        return AnonymousDailyLesson(date=lesson_date, passage=passage)
-
-    @staticmethod
-    def _parse_passage_id(passage_id: str) -> tuple[str, int, int]:
-        book_code, chapter, verse = passage_id.split(".", maxsplit=2)
-        return book_code, int(chapter), int(verse)

@@ -5,12 +5,15 @@ from fastapi.routing import APIRoute
 
 from portal.application.auth.results import HeaderInfo
 from portal.application.devotion.results import EncounterResult, RhythmResult
+from portal.domain.bible.entities import BibleVerse
 from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, LessonNote, Passage
 from portal.libs.contexts.request_context import RequestContext
 from portal.libs.contexts.user_context import UserContext
 from portal.routers.apis.v1 import devotion as devotion_router_module
 from portal.routers.apis.v1.devotion import get_daily_lesson, get_rhythm, get_today_daily_lesson, record_encounter, router, upsert_lesson_note
 from portal.serializers.apis.v1.devotion import EncounterRequest, LessonNoteUpsertRequest
+
+VERSE = BibleVerse(passage_id="JHN.3.16", verse=16, lines=[{"type": "line", "style": "p", "fragments": [{"type": "text", "text": "Verse text"}]}])
 
 
 class StubDevotionService:
@@ -19,12 +22,12 @@ class StubDevotionService:
         if include_authored_sections:
             return DailyLesson(
                 date=lesson_date,
-                passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=["Verse text"]),
+                passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=[VERSE]),
                 reflect=["Reflect"],
                 apply="Apply",
                 pray="Pray",
             )
-        return AnonymousDailyLesson(date=lesson_date, passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=["Verse text"]))
+        return AnonymousDailyLesson(date=lesson_date, passage=Passage(start="JHN.3.16", end="JHN.3.16", ref="John 3:16", verses=[VERSE]))
 
     async def record_encounter(self, *, auth_user_id, encounter_date, time_zone):
         assert time_zone == "America/Toronto"
@@ -86,6 +89,14 @@ async def test_anonymous_today_response_omits_authored_sections(monkeypatch):
     assert payload["locked"] == ["reflect", "apply", "pray", "note"]
     assert not {"reflect", "apply", "pray", "note"} & payload.keys()
     assert "data" not in payload
+    assert payload["passage"]["verses"] == [
+        {
+            "passageId": "JHN.3.16",
+            "verse": 16,
+            "verseEnd": None,
+            "lines": [{"type": "line", "style": "p", "fragments": [{"type": "text", "text": "Verse text"}]}],
+        }
+    ]
 
 
 @pytest.mark.asyncio

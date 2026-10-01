@@ -3,14 +3,14 @@ from typing import Protocol
 from uuid import UUID
 
 from portal.domain.devotion.constants import DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, DailyLessonSchedule, Devotion, EncounterStreak, LessonNote
+from portal.domain.devotion.entities import DailyLessonSchedule, Devotion, EncounterStreak, LessonNote, ScheduledDailyLesson
 from portal.domain.locale.entities import Locale
 
 
 class DevotionRepositoryPort(Protocol):
     async def fetch_daily_lesson(
         self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool
-    ) -> AnonymousDailyLesson | DailyLesson | None: ...
+    ) -> ScheduledDailyLesson | None: ...
 
     async def daily_lesson_exists(self, lesson_date: date) -> bool: ...
 

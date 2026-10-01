@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from portal.application.bible.bible_service import BibleService
 from portal.application.devotion.commands import (
     CreateDevotionCommand,
     DailyLessonScheduleQuery,
@@ -22,8 +23,9 @@ from portal.application.devotion.results import (
     RhythmResult,
 )
 from portal.domain.app.ports import EndUserRepositoryPort
+from portal.domain.bible.entities import BibleVerse
 from portal.domain.devotion.constants import DevotionErrorCode, DevotionStatus
-from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote
+from portal.domain.devotion.entities import AnonymousDailyLesson, DailyLesson, Devotion, EncounterStreak, LessonNote, Passage, ScheduledDailyLesson
 from portal.domain.devotion.ports import DevotionRepositoryPort
 from portal.exceptions.responses import BadRequestException, ConflictErrorException, NotFoundException, UnauthorizedException
 from portal.libs.tracing.distributed_trace import distributed_trace
@@ -35,16 +37,19 @@ class DevotionService:
         devotion_repository: DevotionRepositoryPort,
         end_user_repository: EndUserRepositoryPort | None,
         now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        bible_service: BibleService | None = None,
     ):
         self._repository = devotion_repository
         self._end_user_repository = end_user_repository
         self._now_provider = now_provider
+        self._bible_service = bible_service
 
     @distributed_trace()
     async def get_daily_lesson(
         self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool, auth_user_id: UUID | None = None
     ) -> AnonymousDailyLesson | DailyLesson:
-        lesson = await self._repository.fetch_daily_lesson(lesson_date, locale_id, locale_code, include_authored_sections)
+        source = await self._repository.fetch_daily_lesson(lesson_date, locale_id, locale_code, include_authored_sections)
+        lesson = await self._read_cited_passage(source, include_authored_sections) if source is not None else None
         if lesson is not None:
             if isinstance(lesson, DailyLesson) and auth_user_id is not None:
                 end_user_id = await self._get_end_user_id(auth_user_id)
@@ -54,6 +59,33 @@ class DevotionService:
         if not await self._repository.daily_lesson_exists(lesson_date):
             raise NotFoundException(detail=f"No Daily lesson scheduled for {lesson_date}", error_code=DevotionErrorCode.DATE_NOT_SCHEDULED)
         raise NotFoundException(detail="Devotion translation not found for the requested locale", error_code=DevotionErrorCode.TRANSLATION_NOT_FOUND)
+
+    async def _read_cited_passage(self, source: ScheduledDailyLesson, include_authored_sections: bool) -> AnonymousDailyLesson | DailyLesson | None:
+        if self._bible_service is None or source.book_id is None:
+            return None
+        start_book, start_chapter, start_verse = _parse_passage_id(source.passage_start)
+        end_book, end_chapter, end_verse = _parse_passage_id(source.passage_end)
+        if start_book != end_book:
+            return None
+
+        chosen: list[tuple[int, BibleVerse]] = []
+        book_name = None
+        for chapter in range(start_chapter, end_chapter + 1):
+            filled = await self._bible_service.get_chapter(source.book_id, chapter)
+            book_name = filled.book_name
+            chosen.extend((chapter, verse) for verse in filled.verses if _verse_is_cited(verse, chapter, start_chapter, start_verse, end_chapter, end_verse))
+        if not chosen or book_name is None:
+            return None
+
+        first_chapter, first_verse = chosen[0]
+        last_chapter, last_verse = chosen[-1]
+        ref = f"{book_name} {first_chapter}:{first_verse.verse}"
+        if (last_chapter, last_verse.verse) != (first_chapter, first_verse.verse):
+            ref += f"–{last_chapter}:{last_verse.verse}"
+        passage = Passage(start=source.passage_start, end=source.passage_end, ref=ref, verses=[verse for _, verse in chosen])
+        if include_authored_sections:
+            return DailyLesson(date=source.date, passage=passage, reflect=source.reflect or [], apply=source.apply or "", pray=source.pray or "")
+        return AnonymousDailyLesson(date=source.date, passage=passage)
 
     @staticmethod
     def _to_detail_result(devotion: Devotion) -> DevotionDetailResult:
@@ -289,3 +321,17 @@ class DevotionService:
         if streak.last_encounter_date in {reader_date, reader_date - timedelta(days=1)}:
             return streak.current_streak_length
         return 0
+
+
+def _parse_passage_id(passage_id: str) -> tuple[str, int, int]:
+    book_code, chapter, verse = passage_id.split(".", maxsplit=2)
+    return book_code, int(chapter), int(verse)
+
+
+def _verse_is_cited(verse: BibleVerse, chapter: int, start_chapter: int, start_verse: int, end_chapter: int, end_verse: int) -> bool:
+    cited_start = start_verse if chapter == start_chapter else 1
+    cited_end = end_verse if chapter == end_chapter else None
+    verse_finish = verse.verse_end if verse.verse_end is not None else verse.verse
+    if verse_finish < cited_start:
+        return False
+    return cited_end is None or verse.verse <= cited_end
