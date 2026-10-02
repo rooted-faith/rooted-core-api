@@ -5,6 +5,7 @@ CLI main entry point
 import click
 
 from .bible import dump_bible_process
+from .constants import DEFAULT_BIBLE_DATA_DIR
 from .import_bible import import_bible_data_process
 from .init_all import init_all_process
 from .init_locale import init_locales_process
@@ -22,7 +23,7 @@ def cli():
 
 @cli.command(name="dump-bible")
 @click.option("--bible-id", required=True, help="Bible ID (e.g., 1392)")
-@click.option("--out", default="dump", help="Output directory")
+@click.option("--out", default=DEFAULT_BIBLE_DATA_DIR, show_default=True, help="Output directory")
 @click.option("--daily-limit", type=int, default=5000, help="Maximum requests allowed per run (to comply with daily limit)")
 @click.option("--sleep", type=float, default=0.0, help="Sleep seconds after each request (throttling)")
 @click.option("--timeout", type=float, default=30.0, help="HTTP timeout seconds")
@@ -37,10 +38,10 @@ def dump_bible_cmd(bible_id: str, out: str, daily_limit: int, sleep: float, time
 
 @cli.command(name="import-bible")
 @click.option("--bible-id", required=True, help="Bible ID (e.g., 1392)")
-@click.option("--data-dir", default="bible_data", help="Bible data directory (default: bible_data)")
+@click.option("--data-dir", default=DEFAULT_BIBLE_DATA_DIR, show_default=True, help="Bible data directory")
 def import_bible_cmd(bible_id: str, data_dir: str):
     """
-    Import a Bible catalog and index from bible_data directory to database.
+    Import a Bible catalog and index from the bible_data directory to database.
     This command imports:
     1. Bible version metadata from bible_data/{bible_id}/meta/bible.json
     2. Bible books from bible_data/{bible_id}/meta/index.json
