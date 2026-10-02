@@ -2,6 +2,7 @@
 Bible repository — SQLAlchemy-backed Scripture reads.
 """
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -10,6 +11,12 @@ from portal.libs.database import Session
 from portal.models import BibleBook as BibleBookModel
 from portal.models import BibleVerse as BibleVerseModel
 from portal.models import BibleVersion as BibleVersionModel
+
+
+def _to_verse(row: dict[str, Any]) -> BibleVerse:
+    # asyncpg returns JSONB columns as JSON text
+    lines = row["lines"]
+    return BibleVerse.model_validate({**row, "lines": json.loads(lines) if isinstance(lines, str) else lines})
 
 
 class BibleRepository:
@@ -81,13 +88,14 @@ class BibleRepository:
         if not book_with_version:
             return None
 
-        verses: list[BibleVerse] = await (
+        verse_rows = await (
             self._session.select(BibleVerseModel.passage_id, BibleVerseModel.verse, BibleVerseModel.verse_end, BibleVerseModel.lines)
             .where(BibleVerseModel.book_id == book_id)
             .where(BibleVerseModel.chapter == chapter)
             .order_by(BibleVerseModel.verse)
-            .fetch(as_model=BibleVerse)
+            .fetch()
         )
+        verses = [_to_verse(row) for row in verse_rows or []]
 
         return BibleChapter(
             bible_version_id=book_with_version["bible_version_id"],
@@ -97,7 +105,7 @@ class BibleRepository:
             book_code=book_with_version["book_code"],
             book_name=book_with_version["title"],
             chapter=chapter,
-            verses=verses or [],
+            verses=verses,
         )
 
     async def find_book_id(self, bible_version_id: UUID, book_code: str) -> UUID | None:
@@ -114,7 +122,7 @@ class BibleRepository:
         for fill in fills:
             await (
                 self._session.update(BibleVerseModel)
-                .values(verse_end=fill.get("verse_end"), lines=fill["lines"], search_text=fill["search_text"])
+                .values(verse_end=fill.get("verse_end"), lines=json.dumps(fill["lines"]), search_text=fill["search_text"])
                 .where(BibleVerseModel.book_id == book_id)
                 .where(BibleVerseModel.chapter == chapter)
                 .where(BibleVerseModel.verse == fill["verse"])
