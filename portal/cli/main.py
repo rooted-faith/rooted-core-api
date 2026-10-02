@@ -6,6 +6,7 @@ import click
 
 from .bible import dump_bible_process
 from .import_bible import import_bible_data_process
+from .import_daily_devotions import DEFAULT_CSV_PATH, import_daily_devotions_process
 from .init_all import init_all_process
 from .init_locale import init_locales_process
 from .rbac import init_rbac_process, reset_rbac_process
@@ -47,6 +48,21 @@ def import_bible_cmd(bible_id: str, data_dir: str):
     3. Empty Bible verse shells from bible_data/{bible_id}/meta/index.json
     """
     import_bible_data_process(bible_id=bible_id, data_dir=data_dir)
+
+
+@cli.command(name="import-daily-devotions")
+@click.option("--csv-path", type=click.Path(dir_okay=False), default=str(DEFAULT_CSV_PATH), show_default=True, help="Daily devotion CSV to import")
+@click.option("--start-date", type=click.DateTime(formats=["%Y-%m-%d"]), default=None, help="Date for the first CSV row (default: host current date)")
+@click.option("--dry-run", is_flag=True, help="Validate and report the plan without writing")
+@click.option("--replace-schedule", is_flag=True, help="Replace conflicting Daily lesson schedules instead of aborting")
+def import_daily_devotions_cmd(csv_path: str, start_date, dry_run: bool, replace_schedule: bool):
+    """
+    Import the daily devotion CSV as ready Devotions, translations, and Daily lesson schedules.
+
+    The first CSV date maps to the start date; later rows keep their source-date offsets.
+    The whole batch is validated first and written in one transaction.
+    """
+    import_daily_devotions_process(csv_path=csv_path, start_date=start_date.date() if start_date else None, dry_run=dry_run, replace_schedule=replace_schedule)
 
 
 @cli.command(name="seed-identity-providers")
