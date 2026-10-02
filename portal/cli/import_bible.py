@@ -14,8 +14,10 @@ from portal.container import Container
 from portal.libs.logger import logger
 from portal.models import BibleBook, BibleVerse, BibleVersion
 
+from .constants import DEFAULT_BIBLE_DATA_DIR
 
-async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
+
+async def import_bible_data(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DIR):
     """
     Import Bible metadata, books, and empty verse shells from a dumped index.
 
@@ -215,6 +217,6 @@ async def import_bible_data(bible_id: str, data_dir: str = "bible_data"):
         await session.close()
 
 
-def import_bible_data_process(bible_id: str, data_dir: str = "bible_data"):
+def import_bible_data_process(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DIR):
     """Synchronous entry point for importing Bible data"""
     asyncio.run(import_bible_data(bible_id=bible_id, data_dir=data_dir))
