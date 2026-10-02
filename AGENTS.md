@@ -57,6 +57,9 @@ uv run pytest
 uv run python -m portal.cli.main import-bible --bible-id 1392
 uv run python -m portal.cli.main dump-bible --bible-id 1392 --out dump
 
+# Daily devotion CSV import (content ops; --dry-run first, --replace-schedule to replace conflicts)
+uv run python -m portal.cli.main import-daily-devotions --dry-run [--csv-path PATH] [--start-date YYYY-MM-DD] [--replace-schedule]
+
 # Format (layout, then import sort — I only)
 uv run ruff format
 uv run ruff check --fix
