@@ -1,8 +1,10 @@
 """ORM seam: bible catalog tables live under the bible schema with plural names."""
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+from portal.libs.database.aio_orm import validate
 from portal.models import BibleBook, BibleVerse, BibleVersion
 
 
@@ -73,3 +75,14 @@ def test_bible_version_and_book_columns_are_unchanged() -> None:
         "created_at",
         "updated_at",
     }
+
+
+@pytest.mark.parametrize("abbreviation", ["Song of Songs", "Lamentations"])
+def test_bible_book_accepts_abbreviation_longer_than_ten_characters(abbreviation: str) -> None:
+    columns = {column.name: column for column in BibleBook.__table__.c}
+    data = {"abbreviation": abbreviation}
+
+    validate(columns, data, is_insert=True)
+
+    assert columns["abbreviation"].type.length == 50
+    assert data["abbreviation"] == abbreviation

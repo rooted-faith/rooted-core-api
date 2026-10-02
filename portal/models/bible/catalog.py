@@ -48,7 +48,7 @@ class BibleBook(ModelBase, AuditCreatedAtMixin, AuditUpdatedAtMixin, SortableMix
     book_code = Column(sa.String(10), nullable=False, comment="Book code, e.g., 'GEN', 'MAT'", index=True)
     title = Column(sa.String(100), nullable=False, comment="Book title")
     full_title = Column(sa.String(100), nullable=True, comment="Full book title")
-    abbreviation = Column(sa.String(10), nullable=True, comment="Book abbreviation")
+    abbreviation = Column(sa.String(50), nullable=True, comment="Book abbreviation")
     canon = Column(sa.String(20), nullable=False, comment="Canon type: 'old_testament' or 'new_testament'", index=True)
     chapter_count = Column(sa.Integer, nullable=False, comment="Number of chapters in this book")
 
