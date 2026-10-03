@@ -10,9 +10,15 @@ GitHub remains the git host for code and pull requests. Pull requests are not a 
 - Header: `Authorization: $LINEAR_API_KEY`
 - Do not print the key. Resolve `ROO` to a team id with `teams(filter: { key: { eq: "ROO" } })`.
 
+## Project
+
+Default Linear Project for issues created from this repo: **`rooted core api`**.
+
+Resolve the project id with `projects(filter: { name: { eq: "rooted core api" } })` (or the workspace projects list). When creating an issue, always pass that `projectId` so the ticket lands under this project.
+
 ## Conventions
 
-- **Create**: `issueCreate(input: { teamId, title, description })`. Put a multi-line body in `description` (markdown).
+- **Create**: `issueCreate(input: { teamId, projectId, title, description })`. Put a multi-line body in `description` (markdown). Resolve `projectId` from **Project** above.
 - **Read**: `issue(id: "ROO-123")` with `id`, `identifier`, `title`, `description`, `state { name type }`, `labels { nodes { name } }`, `comments { nodes { body createdAt user { name } } }`.
 - **List**: `issues(filter: { team: { key: { eq: "ROO" } }, state: { type: { nin: ["completed", "canceled"] } } })`. Add a `labels` filter when a skill names a label.
 - **Comment**: `commentCreate(input: { issueId, body })`.
@@ -27,7 +33,7 @@ A bare `#42` is not a Linear identifier. Resolve tickets by identifier (`ROO-123
 
 ## When a skill says "publish to the issue tracker"
 
-Create a Linear issue on team `ROO`.
+Create a Linear issue on team `ROO` under this repo's Project (see **Project** above).
 
 ## When a skill says "fetch the relevant ticket"
 
