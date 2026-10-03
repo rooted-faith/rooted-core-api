@@ -374,4 +374,4 @@ On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created 
 - `uv run rooted-cli create-superuser` is interactive. `init-locales` is not safe to run twice: English is stored with NULL script and region, so the upsert does not match and the fixed locale id collides. Boot skips that command when `public.system_locale` already contains `019dd0c8-69fa-7657-87bb-3b7255f5c5ae`.
 - Tests do not need the API process: `uv run pytest`. Lint with `uv run ruff check portal tests` (do not reformat `alembic/versions`).
 - Restart the dev server with `uv run uvicorn portal.main:app --host 0.0.0.0 --port 8000`.
-- Install clones `https://github.com/jayhsia1997/agents` to `/opt/jayhsia-agents` and points `.agents/skills` at that checkout's `skills/` directory. `.agents/` is gitignored, so the link exists on the image only. It is created for this repo, not the other checkouts.
+- Install clones `https://github.com/jayhsia1997/agents` into `.agents/jayhsia-agents` and points `.agents/skills` at `jayhsia-agents/skills`. `.agents/` is gitignored, so the clone and the link exist on the image only. They are created for this repo, not the other checkouts.
