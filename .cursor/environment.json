@@ -1,6 +1,6 @@
 {
   "name": "rooted-core-api",
   "user": "ubuntu",
-  "install": "bash .cursor/cloud-agent-install.sh",
-  "start": "bash .cursor/cloud-agent-start.sh"
+  "install": "repo=; for candidate in /agent/repos/rooted-core-api /workspace/rooted-core-api /workspace; do if [ -f \"$candidate/.cursor/cloud-agent-install.sh\" ]; then repo=$candidate; break; fi; done; if [ -z \"$repo\" ]; then echo \"cloud-agent-install.sh not found\" >&2; exit 1; fi; bash \"$repo/.cursor/cloud-agent-install.sh\"",
+  "start": "repo=; for candidate in /agent/repos/rooted-core-api /workspace/rooted-core-api /workspace; do if [ -f \"$candidate/.cursor/cloud-agent-start.sh\" ]; then repo=$candidate; break; fi; done; if [ -z \"$repo\" ]; then echo \"cloud-agent-start.sh not found\" >&2; exit 1; fi; bash \"$repo/.cursor/cloud-agent-start.sh\""
 }
