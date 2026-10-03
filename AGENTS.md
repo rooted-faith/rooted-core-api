@@ -369,5 +369,6 @@ On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created 
 - Health check is `GET /healthz`.
 - Schema defaults call `uuidv7()`, which ships with PostgreSQL 18. Ubuntu 24.04's PostgreSQL 16 does not have it, so boot installs a compatible `uuidv7()` function before Alembic. Do not remove that function or migrations fail.
 - A copied `example.env` sets `SQL_ECHO=` to an empty string. `Configuration` rejects that value. Use `SQL_ECHO=false` before importing the app.
-- `uv run rooted-cli create-superuser` is interactive. Tests do not need the API process: `uv run pytest`. Lint with `uv run ruff check portal tests` (do not reformat `alembic/versions`).
+- `uv run rooted-cli create-superuser` is interactive. `init-locales` is not safe to run twice: English is stored with NULL script and region, so the upsert does not match and the fixed locale id collides. Boot skips that command when `public.system_locale` already contains `019dd0c8-69fa-7657-87bb-3b7255f5c5ae`.
+- Tests do not need the API process: `uv run pytest`. Lint with `uv run ruff check portal tests` (do not reformat `alembic/versions`).
 - Restart the dev server with `uv run uvicorn portal.main:app --host 0.0.0.0 --port 8000`.
