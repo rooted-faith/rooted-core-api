@@ -357,3 +357,17 @@ Default label names: needs-triage, needs-info, ready-for-agent, ready-for-human,
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
+---
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent image uses **uv 0.12** and **Python 3.14**. System `python3` is 3.12 and cannot run this project. Use `uv run …` from the repo root (see Quick Commands).
+
+On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created (`postgres` / `postgres` on `localhost:5432`, matching `example.env`), migrations and the non-interactive seeds run (`init-locales`, `seed-identity-providers`, `seed-legal-documents`, `seed-system-settings`, `init-rbac`), and the API listens on `http://127.0.0.1:8000`.
+
+- Health check is `GET /healthz`.
+- Schema defaults call `uuidv7()`, which ships with PostgreSQL 18. Ubuntu 24.04's PostgreSQL 16 does not have it, so boot installs a compatible `uuidv7()` function before Alembic. Do not remove that function or migrations fail.
+- A copied `example.env` sets `SQL_ECHO=` to an empty string. `Configuration` rejects that value. Use `SQL_ECHO=false` before importing the app.
+- `uv run rooted-cli create-superuser` is interactive. Tests do not need the API process: `uv run pytest`. Lint with `uv run ruff check portal tests` (do not reformat `alembic/versions`).
+- Restart the dev server with `uv run uvicorn portal.main:app --host 0.0.0.0 --port 8000`.
