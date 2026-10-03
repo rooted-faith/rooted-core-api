@@ -50,9 +50,9 @@ cd_repo
 uv python install 3.14
 uv sync --frozen
 
-# Personal skills from https://github.com/jayhsia1997/agents. Clone inside this
-# repo (gitignored) and point .agents/skills at that skills directory with one
-# relative symlink, so the files stay inside the project tree.
+# Personal skills from https://github.com/jayhsia1997/agents. Copy them into
+# .agents/skills as real directories. A symlink to that checkout was present on
+# the image and was not added to the agent's skill list. .agents/ is gitignored.
 mkdir -p .agents
 agents_dir=".agents/jayhsia-agents"
 if [[ ! -d "${agents_dir}/.git" ]]; then
@@ -65,9 +65,10 @@ else
 fi
 test -f "${agents_dir}/skills/python/SKILL.md"
 
-if [[ -d .agents/skills && ! -L .agents/skills ]]; then
-  echo ".agents/skills is a real directory; leaving it in place" >&2
-else
-  ln -sfn jayhsia-agents/skills .agents/skills
+if [[ -L .agents/skills ]]; then
+  rm -f .agents/skills
 fi
+mkdir -p .agents/skills
+cp -a "${agents_dir}/skills/." .agents/skills/
+test ! -L .agents/skills
 test -f .agents/skills/python/SKILL.md
