@@ -3,6 +3,12 @@
 .vscode/
 bible_data
 .codex
+docs/*
+!docs/adr/
+!docs/adr/**
+!docs/agents/
+!docs/migrations/
+!docs/research/
 
 ### direnv template
 .direnv
