@@ -9,6 +9,7 @@ docs/*
 !docs/agents/
 !docs/migrations/
 !docs/research/
+.agents/
 
 ### direnv template
 .direnv
