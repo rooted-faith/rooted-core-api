@@ -88,7 +88,9 @@ class AppAuthService:
 
         user = await self._user_repository.get_sensitive_by_email_without_profile(email)
         if user is None:
-            provisioned = await self._provisioning_service.provision(ProvisionIdentityCommand(email=email, password=None, create_end_user=True))
+            provisioned = await self._provisioning_service.provision(
+                ProvisionIdentityCommand(email=email, password=None, create_end_user=True, locale_code=get_resolved_locale_code())
+            )
             if provisioned.end_user_id is None:
                 raise UnauthorizedException(detail=_OTP_FAILURE_DETAIL)
             user = await self._user_repository.get_sensitive_by_email_without_profile(email)

@@ -139,6 +139,11 @@ class StubPreferencesRepository:
         return self.by_user_id.get(user_id)
 
 
+class StubBibleRepository:
+    async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
+        return youversion_bible_id in {"113", "1392", "36"}
+
+
 class StubGoogleIdTokenVerifier:
     def __init__(self):
         self.claims_by_token: dict[str, GoogleIdentityClaims] = {}
@@ -195,7 +200,11 @@ def _build_service(
     prefs_repo = StubPreferencesRepository()
     verifier = StubGoogleIdTokenVerifier()
     provisioning = EndUserProvisioningService(
-        user_repository=user_repo, end_user_repository=end_user_repo, preferences_repository=prefs_repo, password_provider=StubPasswordProvider()
+        user_repository=user_repo,
+        end_user_repository=end_user_repo,
+        preferences_repository=prefs_repo,
+        bible_repository=StubBibleRepository(),
+        password_provider=StubPasswordProvider(),
     )
     member_login_service = MemberLoginService(
         user_repository=user_repo,

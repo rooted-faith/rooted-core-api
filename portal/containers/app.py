@@ -59,13 +59,16 @@ class AppContainer(containers.DeclarativeContainer):
         user_repository=user_repository,
         end_user_repository=end_user_repository,
         preferences_repository=preferences_repository,
+        bible_repository=bible_repository,
         password_provider=core.password_provider,
     )
 
     otp_token_store = providers.Factory(OtpTokenCache, redis_client=core.redis_client)
     otp_mailer = providers.Singleton(OtpMailer)
 
-    preferences_service = providers.Factory(PreferencesService, end_user_repository=end_user_repository, preferences_repository=preferences_repository)
+    preferences_service = providers.Factory(
+        PreferencesService, end_user_repository=end_user_repository, preferences_repository=preferences_repository, bible_repository=bible_repository
+    )
 
     member_web_app_registry = providers.Singleton(lambda: MemberWebAppRegistry(parse_member_web_apps(app_settings.MEMBER_WEB_APPS)))
     member_login_service = providers.Factory(

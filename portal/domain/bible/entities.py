@@ -19,6 +19,8 @@ class BibleVersion(UUIDBaseModel):
     localized_title: str = Field(...)
     localized_abbreviation: str | None = Field(default=None)
     language_tag: str = Field(...)
+    copyright: str | None = Field(default=None)
+    publisher_url: str | None = Field(default=None)
     is_active: bool = Field(...)
 
 

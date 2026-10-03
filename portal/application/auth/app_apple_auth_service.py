@@ -10,6 +10,7 @@ from portal.domain.app.ports import EndUserRepositoryPort
 from portal.domain.auth.entities import AppleIdentityClaims
 from portal.domain.auth.ports import AppleIdTokenVerifierPort, UserRepositoryPort
 from portal.exceptions.responses import UnauthorizedException
+from portal.libs.contexts.request_context import get_resolved_locale_code
 from portal.libs.tracing.distributed_trace import distributed_trace
 
 APPLE_PROVIDER_CODE = "apple"
@@ -74,7 +75,9 @@ class AppAppleAuthService:
         return await self._member_login_service.complete_member_login(user=user, end_user_id=end_user.id, app_code=app_code)
 
     async def _provision_and_login(self, *, claims: AppleIdentityClaims, email: str, app_code: str) -> MemberLoginResult:
-        provisioned = await self._provisioning_service.provision(ProvisionIdentityCommand(email=email, password=None, create_end_user=True))
+        provisioned = await self._provisioning_service.provision(
+            ProvisionIdentityCommand(email=email, password=None, create_end_user=True, locale_code=get_resolved_locale_code())
+        )
         if provisioned.end_user_id is None:
             raise UnauthorizedException(detail=GENERIC_FAILURE_DETAIL)
         user = await self._user_repository.get_sensitive_by_email_without_profile(email)

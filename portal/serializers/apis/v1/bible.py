@@ -16,6 +16,8 @@ class BibleVersion(BaseModel):
     localized_title: str = Field(..., serialization_alias="localizedTitle")
     localized_abbreviation: str | None = Field(default=None, serialization_alias="localizedAbbreviation")
     language_tag: str = Field(..., serialization_alias="languageTag")
+    copyright: str | None = Field(default=None)
+    publisher_url: str | None = Field(default=None, serialization_alias="publisherUrl")
     is_active: bool = Field(..., serialization_alias="isActive")
 
     @field_serializer("id")

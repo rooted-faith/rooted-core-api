@@ -25,7 +25,7 @@ from portal.serializers.apis.v1.bible import (
 
 
 def bible_version_list_to_api(result: BibleVersionListResult) -> BibleVersionList:
-    return BibleVersionList(versions=[BibleVersion.model_validate(item) for item in result.versions])
+    return BibleVersionList(versions=[BibleVersion.model_validate(item, from_attributes=True) for item in result.versions])
 
 
 def bible_book_list_to_api(result: BibleBookListResult) -> BibleBookList:

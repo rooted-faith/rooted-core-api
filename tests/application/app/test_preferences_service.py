@@ -7,7 +7,7 @@ import pytest
 from portal.application.app.commands import UpdatePreferencesCommand
 from portal.application.app.preferences_service import PreferencesService
 from portal.domain.app.entities import EndUser, UserPreferences
-from portal.exceptions.responses import UnauthorizedException
+from portal.exceptions.responses import BadRequestException, UnauthorizedException
 
 
 class StubEndUserRepository:
@@ -34,10 +34,20 @@ class StubPreferencesRepository:
         return self.preferences
 
 
-def build_service() -> tuple[PreferencesService, EndUser, StubPreferencesRepository]:
+class StubBibleRepository:
+    def __init__(self, active_youversion_bible_ids: set[str] | None = None):
+        self.active_youversion_bible_ids = active_youversion_bible_ids or {"113", "1392", "36"}
+
+    async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
+        return youversion_bible_id in self.active_youversion_bible_ids
+
+
+def build_service(bible_repository: StubBibleRepository | None = None) -> tuple[PreferencesService, EndUser, StubPreferencesRepository]:
     end_user = EndUser(id=uuid4(), auth_user_id=uuid4())
     repository = StubPreferencesRepository(UserPreferences(user_id=end_user.id, display_name="林安"))
-    service = PreferencesService(end_user_repository=StubEndUserRepository(end_user), preferences_repository=repository)
+    service = PreferencesService(
+        end_user_repository=StubEndUserRepository(end_user), preferences_repository=repository, bible_repository=bible_repository or StubBibleRepository()
+    )
     return service, end_user, repository
 
 
@@ -64,7 +74,27 @@ async def test_update_preferences_persists_week_start_with_other_preferences() -
 @pytest.mark.asyncio
 async def test_get_preferences_rejects_a_credential_without_an_end_user() -> None:
     _, _, repository = build_service()
-    service = PreferencesService(end_user_repository=StubEndUserRepository(None), preferences_repository=repository)
+    service = PreferencesService(end_user_repository=StubEndUserRepository(None), preferences_repository=repository, bible_repository=StubBibleRepository())
 
     with pytest.raises(UnauthorizedException):
         await service.get_preferences(auth_user_id=uuid4())
+
+
+@pytest.mark.asyncio
+async def test_update_preferences_accepts_an_active_youversion_bible_id() -> None:
+    service, end_user, repository = build_service()
+
+    result = await service.update_preferences(auth_user_id=end_user.auth_user_id, command=UpdatePreferencesCommand(bible_version="1392"))
+
+    assert result.bible_version == "1392"
+    assert repository.preferences.bible_version == "1392"
+
+
+@pytest.mark.asyncio
+async def test_update_preferences_rejects_an_inactive_or_unknown_bible_version() -> None:
+    service, end_user, repository = build_service(StubBibleRepository(active_youversion_bible_ids={"113"}))
+
+    with pytest.raises(BadRequestException):
+        await service.update_preferences(auth_user_id=end_user.auth_user_id, command=UpdatePreferencesCommand(bible_version="cuv1919"))
+
+    assert repository.preferences.bible_version == "113"

@@ -27,8 +27,8 @@ class UserPreferences(UUIDBaseModel):
     display_name: str = Field(...)
     theme: str = Field(default="system")
     font_scale: str = Field(default="M")
-    # Soft string catalog key (e.g. cuv1919); not a hard FK to bible.versions.
-    bible_version: str = Field(default="cuv1919")
+    # YouVersion Bible ID; not a hard FK to bible.versions.
+    bible_version: str = Field(default="113")
     stage: Optional[str] = Field(default=None)
     reminder_time: Optional[time] = Field(default=None)
     reminder_enabled: bool = Field(default=False)
