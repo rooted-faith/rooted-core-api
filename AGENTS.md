@@ -362,6 +362,8 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Cursor Cloud specific instructions
 
+Cloud Agent setup is the committed [`.cursor/environment.json`](.cursor/environment.json). `install` runs `.cursor/cloud-agent-install.sh`; `start` runs `.cursor/cloud-agent-start.sh`. That file overrides a dashboard-saved environment for any agent started on a revision that contains it.
+
 The Cloud Agent image uses **uv 0.12** and **Python 3.14**. System `python3` is 3.12 and cannot run this project. Use `uv run …` from the repo root (see Quick Commands).
 
 On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created (`postgres` / `postgres` on `localhost:5432`, matching `example.env`), migrations and the non-interactive seeds run (`init-locales`, `seed-identity-providers`, `seed-legal-documents`, `seed-system-settings`, `init-rbac`), and the API listens on `http://127.0.0.1:8000`.
@@ -372,3 +374,4 @@ On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created 
 - `uv run rooted-cli create-superuser` is interactive. `init-locales` is not safe to run twice: English is stored with NULL script and region, so the upsert does not match and the fixed locale id collides. Boot skips that command when `public.system_locale` already contains `019dd0c8-69fa-7657-87bb-3b7255f5c5ae`.
 - Tests do not need the API process: `uv run pytest`. Lint with `uv run ruff check portal tests` (do not reformat `alembic/versions`).
 - Restart the dev server with `uv run uvicorn portal.main:app --host 0.0.0.0 --port 8000`.
+- Install clones `https://github.com/jayhsia1997/agents` into `.agents/jayhsia-agents` and points `.agents/skills` at `jayhsia-agents/skills` with one symlink. `.agents/` is gitignored, so the clone and the link exist on the image only. They are created for this repo, not the other checkouts. A fresh agent can read those `SKILL.md` files. They did not appear in the automatic skill list while `.agents/` stayed gitignored.
