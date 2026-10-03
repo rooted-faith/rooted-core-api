@@ -35,6 +35,13 @@ class UpdateMemberPreferences(BaseModel):
     reminder_enabled: Optional[bool] = Field(default=None)
     week_start: Optional[WeekStart] = Field(default=None)
 
+    @field_validator("bible_version")
+    @classmethod
+    def bible_version_must_not_be_null(cls, value: Optional[str]) -> str:
+        if value is None:
+            raise ValueError("bible_version must be an active YouVersion Bible ID")
+        return value
+
     @field_validator("week_start")
     @classmethod
     def week_start_must_not_be_null(cls, value: Optional[WeekStart]) -> WeekStart:

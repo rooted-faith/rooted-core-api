@@ -12,6 +12,7 @@ from portal.application.auth.results import MemberLoginResult
 from portal.domain.auth.entities import AppleIdentityClaims
 from portal.exceptions.responses import UnauthorizedException
 from tests.application.auth.test_app_google_auth_service import (
+    StubBibleRepository,
     StubEndUserRepository,
     StubJwtProvider,
     StubMemberRefreshAppBindingProvider,
@@ -56,7 +57,7 @@ def _build_service(monkeypatch: pytest.MonkeyPatch, client_ids: list[str] = ALLO
     end_user_repo = StubEndUserRepository()
     prefs_repo = StubPreferencesRepository()
     verifier = StubAppleIdTokenVerifier()
-    provisioning = EndUserProvisioningService(user_repo, end_user_repo, prefs_repo, StubPasswordProvider())
+    provisioning = EndUserProvisioningService(user_repo, end_user_repo, prefs_repo, StubBibleRepository(), StubPasswordProvider())
     login = MemberLoginService(
         user_repo, prefs_repo, StubJwtProvider(), StubRefreshTokenProvider(), StubMemberRefreshAppBindingProvider(), StubMemberWebAppRegistry()
     )

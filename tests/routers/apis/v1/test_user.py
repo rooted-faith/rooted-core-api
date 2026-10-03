@@ -27,3 +27,8 @@ def test_update_preferences_rejects_invalid_week_start() -> None:
 
     with pytest.raises(ValidationError):
         UpdateMemberPreferences(week_start=None)
+
+
+def test_update_preferences_rejects_a_null_bible_version() -> None:
+    with pytest.raises(ValidationError):
+        UpdateMemberPreferences(bible_version=None)

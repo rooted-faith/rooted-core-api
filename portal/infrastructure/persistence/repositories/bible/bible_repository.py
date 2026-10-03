@@ -34,6 +34,8 @@ class BibleRepository:
             BibleVersionModel.localized_title,
             BibleVersionModel.localized_abbreviation,
             BibleVersionModel.language_tag,
+            BibleVersionModel.copyright,
+            BibleVersionModel.publisher_url,
             BibleVersionModel.is_active,
         ).where(BibleVersionModel.is_active.is_(True))
 
@@ -47,6 +49,15 @@ class BibleRepository:
         version_id = await (
             self._session.select(BibleVersionModel.id)
             .where(BibleVersionModel.id == bible_version_id)
+            .where(BibleVersionModel.is_active == True)  # noqa: E712
+            .fetchval()
+        )
+        return version_id is not None
+
+    async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
+        version_id = await (
+            self._session.select(BibleVersionModel.id)
+            .where(BibleVersionModel.youversion_bible_id == youversion_bible_id)
             .where(BibleVersionModel.is_active == True)  # noqa: E712
             .fetchval()
         )

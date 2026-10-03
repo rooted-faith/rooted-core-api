@@ -17,6 +17,9 @@ class BibleRepositoryPort(Protocol):
     async def version_is_active(self, bible_version_id: UUID) -> bool:
         """Return True when the version exists and is active."""
 
+    async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
+        """Return True when the active catalog contains this licensed YouVersion Bible ID."""
+
     async def fetch_books(self, bible_version_id: UUID) -> list[BibleBook]:
         """List books for a version ordered by sequence."""
 

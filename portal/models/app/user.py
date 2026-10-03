@@ -35,7 +35,7 @@ class AppUserPreferences(ModelBase, AuditMixin):
     """
     1:1 Preferences for an End user.
 
-    bible_version is a soft string catalog key, not a hard FK to bible.versions.
+    bible_version is a YouVersion Bible ID, not a hard FK to bible.versions.
     """
 
     __extra_table_args__ = (
@@ -48,7 +48,7 @@ class AppUserPreferences(ModelBase, AuditMixin):
     display_name = Column(sa.String(100), nullable=False, comment="Display name")
     theme = Column(sa.String(10), nullable=False, server_default="system", comment="Theme: light|dark|system")
     font_scale = Column(sa.String(2), nullable=False, server_default="M", comment="Font scale: S|M|L")
-    bible_version = Column(sa.String(20), nullable=False, server_default="cuv1919", comment="Soft bible version key (not a hard FK)")
+    bible_version = Column(sa.String(20), nullable=False, server_default="113", comment="YouVersion Bible ID (not a hard FK)")
     stage = Column(sa.String(20), nullable=True, comment="Stage: seeking|growing|serving")
     reminder_time = Column(sa.Time(), nullable=True, comment="Daily reminder time")
     reminder_enabled = Column(sa.Boolean, nullable=False, server_default=sa.text("false"), comment="Whether reminder is enabled")

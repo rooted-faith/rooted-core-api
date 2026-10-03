@@ -27,7 +27,7 @@ class ProvisionIdentityCommand(BaseModel):
     is_superuser: bool = Field(default=False)
     theme: str = Field(default="system")
     font_scale: str = Field(default="M")
-    bible_version: str = Field(default="cuv1919")
+    locale_code: Optional[str] = Field(default=None)
     stage: Optional[str] = Field(default=None)
     reminder_time: Optional[time] = Field(default=None)
     reminder_enabled: bool = Field(default=False)

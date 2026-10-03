@@ -89,6 +89,11 @@ class StubPreferencesRepository:
         return self.by_user_id.get(user_id)
 
 
+class StubBibleRepository:
+    async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
+        return youversion_bible_id in {"113", "1392", "36"}
+
+
 class StubJwtProvider:
     def create_access_token(self, *args, **kwargs) -> str:
         return "access-token"
@@ -161,7 +166,11 @@ def _build_service() -> tuple[AppAuthService, StubUserRepository, StubEndUserRep
     mailer = StubOtpMailer()
     token_store = StubOtpTokenStore()
     provisioning = EndUserProvisioningService(
-        user_repository=user_repo, end_user_repository=end_user_repo, preferences_repository=prefs_repo, password_provider=password
+        user_repository=user_repo,
+        end_user_repository=end_user_repo,
+        preferences_repository=prefs_repo,
+        bible_repository=StubBibleRepository(),
+        password_provider=password,
     )
     member_login_service = MemberLoginService(
         user_repository=user_repo,
@@ -202,7 +211,8 @@ async def test_requested_code_is_six_digits_and_never_returned_to_the_caller():
 
 
 @pytest.mark.asyncio
-async def test_verify_new_email_creates_passwordless_end_user_and_returns_tokens():
+async def test_verify_new_email_creates_passwordless_end_user_and_returns_tokens(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("portal.application.auth.app_auth_service.get_resolved_locale_code", lambda: "zh-TW")
     service, user_repo, end_user_repo, prefs_repo, mailer, _ = _build_service()
     code = await _request_and_get_code(service, mailer, "jay@example.com")
 
@@ -232,6 +242,7 @@ async def test_verify_new_email_creates_passwordless_end_user_and_returns_tokens
         "last_login_at",
     }
     assert prefs_repo.by_user_id[end_user.id].display_name == "jay"
+    assert prefs_repo.by_user_id[end_user.id].bible_version == "1392"
     assert user_repo.last_login_updates
 
 
