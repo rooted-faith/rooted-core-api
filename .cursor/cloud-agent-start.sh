@@ -19,12 +19,21 @@ cd_repo() {
   return 1
 }
 
+postgres_version() {
+  # Do not probe with `ls /etc/postgresql` in a pipeline. With pipefail, a
+  # missing directory makes that assignment exit 2 before the error below.
+  if [[ ! -d /etc/postgresql ]]; then
+    return 0
+  fi
+  ls /etc/postgresql | sort -V | tail -1
+}
+
 start_postgres() {
-  if pg_isready -q; then
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -q; then
     return 0
   fi
   local ver pidfile pid
-  ver="$(ls /etc/postgresql 2>/dev/null | sort -V | tail -1)"
+  ver="$(postgres_version)"
   if [[ -z "${ver}" ]]; then
     echo "PostgreSQL is not installed" >&2
     return 1
