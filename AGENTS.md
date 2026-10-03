@@ -362,6 +362,8 @@ Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Cursor Cloud specific instructions
 
+Cloud Agent setup is the committed [`.cursor/environment.json`](.cursor/environment.json). `install` runs `.cursor/cloud-agent-install.sh`; `start` runs `.cursor/cloud-agent-start.sh`. That file overrides a dashboard-saved environment for any agent started on a revision that contains it.
+
 The Cloud Agent image uses **uv 0.12** and **Python 3.14**. System `python3` is 3.12 and cannot run this project. Use `uv run …` from the repo root (see Quick Commands).
 
 On boot, Postgres 16 and Redis come up, the `rooted-portal` database is created (`postgres` / `postgres` on `localhost:5432`, matching `example.env`), migrations and the non-interactive seeds run (`init-locales`, `seed-identity-providers`, `seed-legal-documents`, `seed-system-settings`, `init-rbac`), and the API listens on `http://127.0.0.1:8000`.
