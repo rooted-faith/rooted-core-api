@@ -49,3 +49,26 @@ cd_repo() {
 cd_repo
 uv python install 3.14
 uv sync --frozen
+
+# Personal skills from https://github.com/jayhsia1997/agents. One directory
+# symlink so Cursor sees .agents/skills/<name>/SKILL.md. .agents/ is gitignored.
+agents_dir=/opt/jayhsia-agents
+if [[ ! -d "${agents_dir}/.git" ]]; then
+  sudo mkdir -p /opt
+  sudo rm -rf "${agents_dir}"
+  sudo git clone --depth 1 https://github.com/jayhsia1997/agents.git "${agents_dir}"
+  sudo chown -R "$(id -u):$(id -g)" "${agents_dir}"
+else
+  git -C "${agents_dir}" fetch --depth 1 origin
+  git -C "${agents_dir}" remote set-head origin -a
+  git -C "${agents_dir}" reset --hard origin/HEAD
+fi
+test -f "${agents_dir}/skills/python/SKILL.md"
+
+mkdir -p .agents
+if [[ -d .agents/skills && ! -L .agents/skills ]]; then
+  echo ".agents/skills is a real directory; leaving it in place" >&2
+else
+  ln -sfn "${agents_dir}/skills" .agents/skills
+fi
+test -f .agents/skills/python/SKILL.md
