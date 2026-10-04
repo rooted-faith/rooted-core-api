@@ -48,7 +48,7 @@ _Avoid_: treating all notes as group-visible, a separate store for reflection an
 ### Bible
 
 **Bible version**:
-A translation catalog entry for one published edition (e.g. YouVersion `1392` / CCBT 2023). The **Bible index** is stored up front; verse bodies are filled when someone actually reads that chapter. Text storage is separate from devotion editorial content.
+A translation catalog entry for one published edition (e.g. YouVersion `1392` / CCBT 2023). Its immutable YouVersion Bible id is the stable public identifier used by End-user Preferences; Rooted's database UUID is internal. The **Bible index** is stored up front; verse bodies are filled when someone actually reads that chapter. Text storage is separate from devotion editorial content.
 _Avoid_: bundling licensed NIV/ESV without rights, treating a new publisher revision as an in-place edit of the same catalog row when YouVersion issues a new bible id, pre-crawling every verse body into the catalog
 
 **Bible index**:
@@ -137,7 +137,7 @@ The product identity of someone using the Rooted app — anonymous for read-only
 _Avoid_: Member (as the identity noun — that word belongs to **Membership** roles), conflating with **Admin User**, using `auth.user.id` as the product member FK
 
 **Preferences**:
-End-user settings and presentation defaults (display name, theme, font scale, bible version, stage, reminder, week start) — distinct from auth credentials, from **Admin User** profile fields, and from the End user identity key. Includes **week start** (`sunday` | `monday`, default `sunday`) — which day the Today screen's weekly rhythm bar begins on; a personal habit that follows the account across devices, unlike language. Does **not** hold UI language: the App always follows the device's system language and never lets the End user override it in-app (ADR 0009).
+End-user settings and presentation defaults (display name, theme, font scale, Bible version's YouVersion Bible id, stage, reminder, week start) — distinct from auth credentials, from **Admin User** profile fields, and from the End user identity key. On End-user provisioning, `bible_version` is non-null and derives from the request `Accept-Language`: NIV `113` for English or a missing/unsupported language, CCBT `1392` for Traditional Chinese, and CCB `36` for Simplified Chinese. Includes **week start** (`sunday` | `monday`, default `sunday`) — which day the Today screen's weekly rhythm bar begins on; a personal habit that follows the account across devices, unlike language. Does **not** hold UI language: the App always follows the device's system language and never lets the End user override it in-app (ADR 0009).
 _Avoid_: Admin User profile fields, burying prefs inside fellowship or journal rows, a stored `locale` column keyed to the account (language is per-device, not a synced account preference — see **Device**)
 
 **Admin User**:
