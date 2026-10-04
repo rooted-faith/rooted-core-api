@@ -56,3 +56,6 @@ class OtpTokenCache:
     async def allow_request(self, email: str, *, max_requests: int, window_seconds: int) -> bool:
         result = await self._redis.eval(_QUOTA_LUA, 1, self._quota_key(email), max_requests, window_seconds)
         return bool(result)
+
+    async def invalidate(self, email: str) -> None:
+        await self._redis.delete(self._cache_key(email))

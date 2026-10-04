@@ -122,6 +122,9 @@ class Configuration(BaseSettings):
     OTP_CODE_EXPIRE_MINUTES: int = int(os.getenv(key="OTP_CODE_EXPIRE_MINUTES", default="10"))
     OTP_REQUEST_MAX_PER_WINDOW: int = int(os.getenv(key="OTP_REQUEST_MAX_PER_WINDOW", default="3"))
     OTP_REQUEST_WINDOW_SECONDS: int = int(os.getenv(key="OTP_REQUEST_WINDOW_SECONDS", default="600"))
+    # [OTP email delivery via Resend. Unset key only logs the code in dev; elsewhere it fails the request.]
+    RESEND_API_KEY: str = os.getenv(key="RESEND_API_KEY", default="")
+    OTP_EMAIL_SENDER: str = os.getenv(key="OTP_EMAIL_SENDER", default="Rooted <account@rootedfaith.app>")
 
     # [Admin Google ID-token sign-in — ADR 0006. Comma-separated Client ID allowlist; empty disables Google admin sign-in.]
     GOOGLE_ADMIN_CLIENT_IDS: str = os.getenv(key="GOOGLE_ADMIN_CLIENT_IDS", default="")

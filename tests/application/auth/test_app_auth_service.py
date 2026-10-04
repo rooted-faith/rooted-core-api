@@ -18,7 +18,8 @@ from portal.application.auth.mappers import member_login_result_to_api
 from portal.application.auth.member_login_service import MemberLoginService
 from portal.application.auth.results import MemberLoginResult, UserSensitive
 from portal.domain.app.entities import EndUser, UserPreferences
-from portal.exceptions.responses import TooManyRequestsException, UnauthorizedException
+from portal.domain.auth.ports import OtpDeliveryError
+from portal.exceptions.responses import ApiBaseException, TooManyRequestsException, UnauthorizedException
 
 
 class StubPasswordProvider:
@@ -139,6 +140,9 @@ class StubOtpTokenStore:
         stored = self.code_hash_by_email.pop(key, None)
         return stored is not None and stored == code_hash
 
+    async def invalidate(self, email: str) -> None:
+        self.code_hash_by_email.pop(email.strip().lower(), None)
+
     async def allow_request(self, email: str, *, max_requests: int, window_seconds: int) -> bool:
         key = email.strip().lower()
         self.quota_calls.append((key, max_requests, window_seconds))
@@ -151,8 +155,11 @@ class StubOtpTokenStore:
 class StubOtpMailer:
     def __init__(self):
         self.sent: list[tuple[str, str, Optional[str]]] = []
+        self.fail = False
 
     async def send_otp(self, email: str, code: str, *, locale: Optional[str]) -> None:
+        if self.fail:
+            raise OtpDeliveryError("provider down")
         self.sent.append((email, code, locale))
 
 
@@ -361,3 +368,31 @@ async def test_otp_email_uses_the_locale_resolved_for_this_request(monkeypatch: 
     await service.request_otp(AppOtpRequestCommand(email="jay@example.com"))
 
     assert mailer.sent[-1][2] == "en"
+
+
+@pytest.mark.asyncio
+async def test_delivery_failure_invalidates_the_code_and_returns_retryable_503():
+    service, *_rest, mailer, token_store = _build_service()
+    mailer.fail = True
+
+    with pytest.raises(ApiBaseException) as failure:
+        await service.request_otp(AppOtpRequestCommand(email="jay@example.com"))
+
+    assert failure.value.status_code == 503
+    assert token_store.code_hash_by_email == {}
+
+
+@pytest.mark.asyncio
+async def test_delivery_failure_detail_is_identical_for_known_and_unknown_emails():
+    service, *_rest, mailer, _store = _build_service()
+    code = await _request_and_get_code(service, mailer, "known@example.com")
+    await service.verify_otp(AppOtpVerifyCommand(email="known@example.com", code=code))
+    mailer.fail = True
+
+    with pytest.raises(ApiBaseException) as known:
+        await service.request_otp(AppOtpRequestCommand(email="known@example.com"))
+    with pytest.raises(ApiBaseException) as unknown:
+        await service.request_otp(AppOtpRequestCommand(email="unknown@example.com"))
+
+    assert known.value.status_code == unknown.value.status_code == 503
+    assert known.value.detail == unknown.value.detail
