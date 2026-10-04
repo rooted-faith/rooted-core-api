@@ -126,6 +126,9 @@ class Configuration(BaseSettings):
     RESEND_API_KEY: str = os.getenv(key="RESEND_API_KEY", default="")
     OTP_EMAIL_SENDER: str = os.getenv(key="OTP_EMAIL_SENDER", default="Rooted <account@rootedfaith.app>")
 
+    # [Resend email event webhooks. Svix signing secret (whsec_...); empty makes the endpoint fail so Resend retries.]
+    RESEND_WEBHOOK_SECRET: str = os.getenv(key="RESEND_WEBHOOK_SECRET", default="")
+
     # [Admin Google ID-token sign-in — ADR 0006. Comma-separated Client ID allowlist; empty disables Google admin sign-in.]
     GOOGLE_ADMIN_CLIENT_IDS: str = os.getenv(key="GOOGLE_ADMIN_CLIENT_IDS", default="")
 

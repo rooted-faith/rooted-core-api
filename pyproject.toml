@@ -46,6 +46,7 @@ dependencies = [
     "jinja2",
     "click",
     "firebase-admin>=7.5.0",
+    "svix>=2.6.1",
 ]
 
 [project.scripts]

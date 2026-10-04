@@ -17,6 +17,7 @@ from portal.libs.contexts.request_session_context import get_request_session
 from portal.libs.utils.lifespan import lifespan
 from portal.middlewares import AuthMiddleware, CoreRequestMiddleware
 from portal.routers import admin_api_router, api_router
+from portal.routers.webhooks import router as webhooks_router
 from portal.runtime_context import set_runtime_container
 
 
@@ -169,6 +170,7 @@ def get_public_application(container: Container) -> FastAPI:
     api_app = get_api_application(container)
     application.mount("/admin", admin_app)
     application.mount("/api", api_app)
+    application.include_router(webhooks_router)
 
     @application.get("/healthz", operation_id="public_healthz")
     async def public_healthz():
