@@ -12,14 +12,15 @@ from portal.application.auth.member_login_service import MemberLoginService
 from portal.application.auth.results import MemberLoginResult, OtpRequestResult
 from portal.config import settings
 from portal.domain.app.ports import EndUserRepositoryPort
-from portal.domain.auth.ports import OtpMailerPort, OtpTokenPort, UserRepositoryPort
-from portal.exceptions.responses import TooManyRequestsException, UnauthorizedException
+from portal.domain.auth.ports import OtpDeliveryError, OtpMailerPort, OtpTokenPort, UserRepositoryPort
+from portal.exceptions.responses import ApiBaseException, TooManyRequestsException, UnauthorizedException
 from portal.libs.contexts.request_context import get_resolved_locale_code
 from portal.libs.tracing.distributed_trace import distributed_trace
 
 _OTP_ACK_MESSAGE = "If the email is valid, a passcode has been sent"
 _OTP_FAILURE_DETAIL = "Invalid or expired passcode"
 _OTP_THROTTLED_DETAIL = "Too many passcode requests, please try again later"
+_OTP_DELIVERY_FAILED_DETAIL = "Unable to send the passcode, please try again later"
 _OTP_CODE_DIGITS = 6
 
 
@@ -71,7 +72,11 @@ class AppAuthService:
 
         code = self._generate_code()
         await self._otp_token_store.store(email, self._hash_code(email, code), settings.OTP_CODE_EXPIRE_MINUTES * 60)
-        await self._otp_mailer.send_otp(email, code, locale=get_resolved_locale_code())
+        try:
+            await self._otp_mailer.send_otp(email, code, locale=get_resolved_locale_code())
+        except OtpDeliveryError as exc:
+            await self._otp_token_store.invalidate(email)
+            raise ApiBaseException(status_code=503, detail=_OTP_DELIVERY_FAILED_DETAIL, debug_detail=str(exc)) from exc
         return OtpRequestResult(message=_OTP_ACK_MESSAGE)
 
     @distributed_trace()

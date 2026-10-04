@@ -74,11 +74,21 @@ class OtpTokenPort(Protocol):
         """Count this request against the email's rolling window; False once the window is exhausted."""
         ...
 
+    async def invalidate(self, email: str) -> None:
+        """Drop any live passcode for email (e.g. when its delivery failed)."""
+        ...
+
+
+class OtpDeliveryError(Exception):
+    """The mail provider could not accept the passcode message."""
+
 
 class OtpMailerPort(Protocol):
     """Deliver the plain one-time passcode out-of-band (email)."""
 
-    async def send_otp(self, email: str, code: str, *, locale: Optional[str]) -> None: ...
+    async def send_otp(self, email: str, code: str, *, locale: Optional[str]) -> None:
+        """Raise OtpDeliveryError when the message was not accepted for delivery."""
+        ...
 
 
 class GoogleIdTokenVerifierPort(Protocol):
