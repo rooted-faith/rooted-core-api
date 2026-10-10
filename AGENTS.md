@@ -348,7 +348,7 @@ Pick **`application/bible/`** as the reference vertical slice for new domains.
 
 ### Issue tracker
 
-Issues live in Linear (team `ROO`, via the Linear GraphQL API or MCP). See `docs/agents/issue-tracker.md`.
+Issues are created in the owning GitHub repository via `gh`. After synchronization, use Linear for reading, updating, commenting, managing dependencies, and closing issues. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

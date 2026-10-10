@@ -1,51 +1,57 @@
-# Issue tracker: Linear
+# Issue tracker: GitHub + Linear
 
-Issues and specs for this repo live as Linear issues on team `ROO` (identifiers like `ROO-123`). Use the Linear GraphQL API. Do not use GitHub Issues for tickets.
+Create issues and specs in the owning GitHub repository via `gh`. After synchronization, use Linear team `ROO` for all issue reads, updates, comments, dependencies, and workflow states.
 
-GitHub remains the git host for code and pull requests. Pull requests are not a triage surface.
+GitHub hosts code and pull requests. Use `gh` for PR operations.
 
 ## Auth
 
-- Endpoint: `https://api.linear.app/graphql`
+- Linear endpoint: `https://api.linear.app/graphql`
 - Header: `Authorization: $LINEAR_API_KEY`
-- Do not print the key. Resolve `ROO` to a team id with `teams(filter: { key: { eq: "ROO" } })`.
+- Do not print the key. Resolve `ROO` with `teams(filter: { key: { eq: "ROO" } })`.
 
-## Project
+## Repository and Project
 
-Default Linear Project for issues created from this repo: **`rooted core api`**.
+Resolve the owning GitHub repository from the task and verify it against `git remote -v`. Pass `--repo <owner/repo>` explicitly when creating issues.
 
-Resolve the project id with `projects(filter: { name: { eq: "rooted core api" } })` (or the workspace projects list). When creating an issue, always pass that `projectId` so the ticket lands under this project.
+Default Linear Project for this repo: **`rooted core api`**.
+
+Resolve it with `projects(filter: { name: { eq: "rooted core api" } })`. After synchronization, set the synced issue's `projectId` using `issueUpdate`.
 
 ## Conventions
 
-- **Create**: `issueCreate(input: { teamId, projectId, title, description })`. Put a multi-line body in `description` (markdown). Resolve `projectId` from **Project** above.
-- **Read**: `issue(id: "ROO-123")` with `id`, `identifier`, `title`, `description`, `state { name type }`, `labels { nodes { name } }`, `comments { nodes { body createdAt user { name } } }`.
-- **List**: `issues(filter: { team: { key: { eq: "ROO" } }, state: { type: { nin: ["completed", "canceled"] } } })`. Add a `labels` filter when a skill names a label.
-- **Comment**: `commentCreate(input: { issueId, body })`.
-- **Apply / remove labels**: `issueAddLabel` / `issueRemoveLabel`. Look up the label id on the team by name; create the label on the team if it is missing.
-- **Close**: `issueUpdate` to the team's workflow state whose `type` is `completed` (Done). For `wontfix`, use the state whose `type` is `canceled`, and add the comment first.
+- **Create**: `gh issue create --repo <owner/repo> --title "..." --body-file <path>`. Write the Markdown body to a file; include initial labels with `--label`.
+- **Sync**: wait for the integration to create the Linear issue. Match it by the exact GitHub issue URL in its attachments. If no unique match is found, report the synchronization blocker; do not create another issue in either tracker.
+- **Read**: `issue(id: "ROO-123")` with `id`, `identifier`, `title`, `description`, `project { id name }`, `state { name type }`, labels, comments, and attachments. Include parent, children, and blocking relations when relevant.
+- **List**: `issues(filter: { team: { key: { eq: "ROO" } }, state: { type: { nin: ["completed", "canceled"] } } })`. Add project, state, or label filters required by the task.
+- **Update**: `issueUpdate` for title, description, assignee, project, parent, and workflow state.
+- **Comment**: `commentCreate(input: { issueId, body })`. Use the synced thread when the comment must also appear in GitHub.
+- **Apply / remove labels**: `issueAddLabel` / `issueRemoveLabel`. Resolve label ids by name; create missing labels on the team.
+- **Close**: `issueUpdate` to the team's state whose `type` is `completed` (Done). For `wontfix`, comment first and use a state whose `type` is `canceled`. Let the integration reflect the result in GitHub.
 
-A bare `#42` is not a Linear identifier. Resolve tickets by identifier (`ROO-123`) or by Linear issue id.
+Use the GitHub issue URL or `owner/repo#number` for repository identity, and `ROO-123` or the Linear issue UUID for Linear operations. Never assume their numbers match. Follow the repository's documented branch naming convention.
 
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.**
 
+For work completed by merging the PR, use `Closes ROO-<number>` and reference the GitHub issue URL without a closing keyword. Linear PR automation owns completion; issue sync reflects it in GitHub.
+
 ## When a skill says "publish to the issue tracker"
 
-Create a Linear issue on team `ROO` under this repo's Project (see **Project** above).
+Create the issue in GitHub, resolve its synced Linear issue, then set its Project and any remaining metadata in Linear. Keep newly published specs and tickets in `Backlog`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Query `issue(id: "<identifier>")` including comments and labels.
+Read the Linear issue, including comments and labels. If given a GitHub reference, first resolve its synced Linear issue.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a single Linear issue with **child** issues as tickets.
+Used by `/wayfinder`. Create the **map** and **child** issues through GitHub; manage their synced Linear issues afterward.
 
 - **Map**: one issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body.
-- **Child ticket**: `issueCreate` with `parentId` set to the map. Labels: `wayfinder:<type>` (`research` / `prototype` / `grilling` / `task`). Once claimed, assign it to the driving dev.
+- **Child ticket**: create and resolve the synced issue, then set its Linear `parentId` to the map. Labels: `wayfinder:<type>` (`research` / `prototype` / `grilling` / `task`).
 - **Blocking**: `issueRelationCreate` with type `blocks`. A ticket is unblocked when every blocker is completed or canceled. If relations are unavailable, put `Blocked by: ROO-n, ROO-n` at the top of the child description.
-- **Frontier query**: the map's open children, dropping any with an open blocker or an assignee. First in map order wins.
-- **Claim**: `issueUpdate` assignee to the current Linear viewer (`viewer`). This is the session's first write.
-- **Resolve**: comment with the answer, set the state to completed, then append a context pointer to the map's Decisions-so-far description.
+- **Frontier query**: the map's open Linear children, dropping any with an open blocker or an assignee. First in map order wins.
+- **Claim**: `issueUpdate` assignee to the current Linear viewer (`viewer`). This is the claiming session's first write.
+- **Resolve**: comment with the answer, set the Linear state to completed, then append a context pointer to the map's Decisions-so-far description.
