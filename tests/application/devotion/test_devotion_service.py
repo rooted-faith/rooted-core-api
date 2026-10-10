@@ -143,7 +143,30 @@ async def test_get_daily_lesson_does_not_read_a_cross_book_range():
         await service.get_daily_lesson(date(2026, 9, 8), locale_id=None, locale_code="en", include_authored_sections=False)
 
     assert bible.calls == []
-    assert error.value.error_code == DevotionErrorCode.TRANSLATION_NOT_FOUND
+    assert error.value.error_code == DevotionErrorCode.BIBLE_PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_daily_lesson_names_the_bible_lookup_when_no_bible_book_matches_the_language():
+    source = ScheduledDailyLesson(date=date(2026, 9, 8), passage_start="JHN.3.16", passage_end="JHN.3.16", book_id=None)
+    service = DevotionService(StubDevotionRepository(lesson=source), StubEndUserRepository(None), bible_service=StubBibleService(chapters={}))
+
+    with pytest.raises(NotFoundException) as error:
+        await service.get_daily_lesson(date(2026, 9, 8), locale_id=None, locale_code="en", include_authored_sections=False)
+
+    assert error.value.error_code == DevotionErrorCode.BIBLE_PASSAGE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_daily_lesson_names_the_bible_lookup_when_the_chapter_has_no_cited_verses():
+    bible = StubBibleService(chapters={(BOOK_ID, 3): _chapter(BOOK_ID, "JHN", 3, "John", [])})
+    source = ScheduledDailyLesson(date=date(2026, 9, 8), passage_start="JHN.3.16", passage_end="JHN.3.16", book_id=BOOK_ID)
+    service = DevotionService(StubDevotionRepository(lesson=source), StubEndUserRepository(None), bible_service=bible)
+
+    with pytest.raises(NotFoundException) as error:
+        await service.get_daily_lesson(date(2026, 9, 8), locale_id=None, locale_code="en", include_authored_sections=True)
+
+    assert error.value.error_code == DevotionErrorCode.BIBLE_PASSAGE_NOT_FOUND
 
 
 @pytest.mark.asyncio

@@ -2,8 +2,6 @@
 System setting seed use case for CLI (insert-if-missing).
 """
 
-import json
-
 import click
 
 from portal.libs.database import Session
@@ -29,9 +27,7 @@ class SystemSettingSeedService:
             )
             if existing_id:
                 continue
-            # asyncpg JSONB bind expects a JSON text string (e.g. '"America/Toronto"').
-            insert_row = {**row, "value": json.dumps(row["value"])}
-            await self._session.insert(SystemSetting).values(**insert_row).execute()
+            await self._session.insert(SystemSetting).values(**row).execute()
             inserted += 1
         await self._session.commit()
         click.echo(click.style(f"System settings seeded. inserted={inserted} skipped={len(seed_rows) - inserted}", fg="bright_green"))

@@ -2,7 +2,6 @@
 Bible repository — SQLAlchemy-backed Scripture reads.
 """
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -11,12 +10,6 @@ from portal.libs.database import Session
 from portal.models import BibleBook as BibleBookModel
 from portal.models import BibleVerse as BibleVerseModel
 from portal.models import BibleVersion as BibleVersionModel
-
-
-def _to_verse(row: dict[str, Any]) -> BibleVerse:
-    # asyncpg returns JSONB columns as JSON text
-    lines = row["lines"]
-    return BibleVerse.model_validate({**row, "lines": json.loads(lines) if isinstance(lines, str) else lines})
 
 
 class BibleRepository:
@@ -106,7 +99,7 @@ class BibleRepository:
             .order_by(BibleVerseModel.verse)
             .fetch()
         )
-        verses = [_to_verse(row) for row in verse_rows or []]
+        verses = [BibleVerse.model_validate(row) for row in verse_rows or []]
 
         return BibleChapter(
             bible_version_id=book_with_version["bible_version_id"],
@@ -133,7 +126,7 @@ class BibleRepository:
         for fill in fills:
             await (
                 self._session.update(BibleVerseModel)
-                .values(verse_end=fill.get("verse_end"), lines=json.dumps(fill["lines"]), search_text=fill["search_text"])
+                .values(verse_end=fill.get("verse_end"), lines=fill["lines"], search_text=fill["search_text"])
                 .where(BibleVerseModel.book_id == book_id)
                 .where(BibleVerseModel.chapter == chapter)
                 .where(BibleVerseModel.verse == fill["verse"])

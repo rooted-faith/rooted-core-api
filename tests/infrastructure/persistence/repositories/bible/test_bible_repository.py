@@ -1,11 +1,10 @@
 """Tests for BibleRepository."""
 
-import json
 from uuid import uuid4
 
 import pytest
 
-from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository, _to_verse
+from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
 
 
 class FailingSession:
@@ -49,19 +48,11 @@ class RecordingSession:
 
 
 @pytest.mark.asyncio
-async def test_write_chapter_fill_encodes_lines_as_json_text_for_asyncpg() -> None:
+async def test_write_chapter_fill_passes_lines_as_python_values() -> None:
     session = RecordingSession()
     repository = BibleRepository(session=session)
     lines = [{"type": "heading", "style": "s1", "fragments": [{"text": "The Beginning"}]}]
 
     await repository.write_chapter_fill(book_id=uuid4(), chapter=1, fills=[{"verse": 1, "verse_end": None, "lines": lines, "search_text": "In the beginning"}])
 
-    assert json.loads(session.recorded[0]["lines"]) == lines
-
-
-def test_to_verse_decodes_lines_returned_as_json_text_by_asyncpg() -> None:
-    lines = [{"type": "heading", "style": "s1", "fragments": [{"text": "The Beginning"}]}]
-
-    verse = _to_verse({"passage_id": "GEN.1.1", "verse": 1, "verse_end": None, "lines": json.dumps(lines)})
-
-    assert verse.lines == lines
+    assert session.recorded[0]["lines"] == lines

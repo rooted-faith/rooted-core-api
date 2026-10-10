@@ -2,7 +2,6 @@
 Notification repository — SQLAlchemy-backed create + delivery recording.
 """
 
-import json
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -17,16 +16,11 @@ class NotificationRepository:
     def __init__(self, session: Session):
         self._session = session
 
-    @staticmethod
-    def _serialize_jsonb(value: Optional[dict]) -> Optional[str]:
-        """asyncpg JSONB bind expects a JSON text string, not a raw Python value."""
-        return json.dumps(value) if value is not None else None
-
     async def create_notification(self, *, end_user_id: UUID, category: str, title: str, body: str, data: Optional[dict]) -> Notification:
         notification_id = uuid4()
         await (
             self._session.insert(PushNotification)
-            .values(id=notification_id, end_user_id=end_user_id, category=category, title=title, body=body, data=self._serialize_jsonb(data))
+            .values(id=notification_id, end_user_id=end_user_id, category=category, title=title, body=body, data=data)
             .execute()
         )
         return await (
