@@ -25,13 +25,13 @@ from portal.serializers.apis.v1.bible import (
 
 
 def bible_version_list_to_api(result: BibleVersionListResult) -> BibleVersionList:
-    return BibleVersionList(versions=[BibleVersion.model_validate(item, from_attributes=True) for item in result.versions])
+    return BibleVersionList(versions=[BibleVersion.model_validate(item.model_dump()) for item in result.versions])
 
 
 def bible_book_list_to_api(result: BibleBookListResult) -> BibleBookList:
     return BibleBookList(
-        old_testament=[BibleBook.model_validate(item) for item in result.old_testament],
-        new_testament=[BibleBook.model_validate(item) for item in result.new_testament],
+        old_testament=[BibleBook.model_validate(item.model_dump()) for item in result.old_testament],
+        new_testament=[BibleBook.model_validate(item.model_dump()) for item in result.new_testament],
     )
 
 
@@ -59,7 +59,7 @@ def bible_passage_to_api(result: BiblePassageResult) -> BiblePassageDetail:
 
 def bible_search_page_to_api(result: BibleSearchPageResult) -> BibleSearchResponse:
     return BibleSearchResponse(
-        results=[BibleSearchResult.model_validate(item) for item in result.results], total=result.total, limit=result.limit, offset=result.offset
+        results=[BibleSearchResult.model_validate(item.model_dump()) for item in result.results], total=result.total, limit=result.limit, offset=result.offset
     )
 
 
