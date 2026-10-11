@@ -152,6 +152,10 @@ _Avoid_: Account (ambiguous), conflating with **End user** / `app.user`, phone-a
 A short-lived numeric code emailed to a person to authenticate an **End user** — the sole first-party (non-Identity-provider) sign-in path (ADR 0008). Stored ephemerally (e.g. Redis TTL) keyed to the request, never on **Auth credential** or **Identity link** rows.
 _Avoid_: Magic link (superseded by ADR 0008), treating an OTP as a persisted/product-facing entity, phone-delivered OTP (phone is not a Rooted credential identifier)
 
+**Test passcode**:
+An internally shared numeric sign-in code for dedicated test **End user** identities in Rooted's isolated beta environment. Unlike an email-delivered **OTP**, it does not prove ownership of a mailbox.
+_Avoid_: treating it as evidence of verified mailbox ownership, using personal accounts as shared test identities
+
 **Identity provider**:
 A known external sign-in source (e.g. Google, Apple) registered in the auth catalog — not the person’s account at that vendor, and not an OAuth token. **Google** is used for both **Admin User** and **End user** sign-in; **Apple** is End-user-only — never for the admin console (ADR 0008). Microsoft is not a Rooted Identity provider.
 _Avoid_: Social network, OAuth client, treating a free-form string as the provider without a catalog entry, Microsoft Entra as an in-scope provider, Apple sign-in for Admin Users
