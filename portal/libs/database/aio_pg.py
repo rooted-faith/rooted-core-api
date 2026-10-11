@@ -3,6 +3,7 @@ PostgreSQL connection manager
 """
 
 import asyncio
+import json
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -11,6 +12,12 @@ import asyncpg
 from portal.config import settings
 
 __all__ = ["PostgresConnection", "PostgresConnection", "ConnectionType"]
+
+
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    """Bind and return JSON/JSONB as Python values instead of JSON text."""
+    for type_name in ("json", "jsonb"):
+        await conn.set_type_codec(type_name, encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
 class ConnectionType(Enum):
@@ -68,7 +75,9 @@ class PostgresConnection:
             if command_timeout:
                 context.connect_kwargs['command_timeout'] = command_timeout
 
-            context.pool = await asyncpg.create_pool(server_settings=server_settings, max_inactive_connection_lifetime=60 * 10, **context.connect_kwargs)
+            context.pool = await asyncpg.create_pool(
+                server_settings=server_settings, max_inactive_connection_lifetime=60 * 10, init=_init_connection, **context.connect_kwargs
+            )
             return context.pool
 
     async def _create_connection(self, connection_type: ConnectionType = ConnectionType.DEFAULT, command_timeout: int = None, loop=None) -> asyncpg.Connection:
@@ -90,7 +99,9 @@ class PostgresConnection:
         if command_timeout:
             context.connect_kwargs['command_timeout'] = command_timeout
 
-        return await asyncpg.connect(server_settings=server_settings, **context.connect_kwargs, loop=loop)
+        conn = await asyncpg.connect(server_settings=server_settings, **context.connect_kwargs, loop=loop)
+        await _init_connection(conn)
+        return conn
 
     async def _create_server_settings(self, context: PostgresContext) -> Optional[Dict[str, Any]]:
         """Create server settings for connection"""

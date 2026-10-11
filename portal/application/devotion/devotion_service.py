@@ -49,16 +49,22 @@ class DevotionService:
         self, lesson_date: date, locale_id: UUID | None, locale_code: str | None, include_authored_sections: bool, auth_user_id: UUID | None = None
     ) -> AnonymousDailyLesson | DailyLesson:
         source = await self._repository.fetch_daily_lesson(lesson_date, locale_id, locale_code, include_authored_sections)
-        lesson = await self._read_cited_passage(source, include_authored_sections) if source is not None else None
-        if lesson is not None:
-            if isinstance(lesson, DailyLesson) and auth_user_id is not None:
-                end_user_id = await self._get_end_user_id(auth_user_id)
-                note = await self._repository.get_lesson_note(end_user_id, lesson_date)
-                return lesson.model_copy(update={"note": note})
-            return lesson
-        if not await self._repository.daily_lesson_exists(lesson_date):
-            raise NotFoundException(detail=f"No Daily lesson scheduled for {lesson_date}", error_code=DevotionErrorCode.DATE_NOT_SCHEDULED)
-        raise NotFoundException(detail="Devotion translation not found for the requested locale", error_code=DevotionErrorCode.TRANSLATION_NOT_FOUND)
+        if source is None:
+            if not await self._repository.daily_lesson_exists(lesson_date):
+                raise NotFoundException(detail=f"No Daily lesson scheduled for {lesson_date}", error_code=DevotionErrorCode.DATE_NOT_SCHEDULED)
+            raise NotFoundException(detail="Devotion translation not found for the requested locale", error_code=DevotionErrorCode.TRANSLATION_NOT_FOUND)
+        lesson = await self._read_cited_passage(source, include_authored_sections)
+        if lesson is None:
+            raise NotFoundException(
+                detail="Bible passage not found for the requested locale",
+                error_code=DevotionErrorCode.BIBLE_PASSAGE_NOT_FOUND,
+                context={"locale_code": locale_code, "passage_start": source.passage_start, "passage_end": source.passage_end},
+            )
+        if isinstance(lesson, DailyLesson) and auth_user_id is not None:
+            end_user_id = await self._get_end_user_id(auth_user_id)
+            note = await self._repository.get_lesson_note(end_user_id, lesson_date)
+            return lesson.model_copy(update={"note": note})
+        return lesson
 
     async def _read_cited_passage(self, source: ScheduledDailyLesson, include_authored_sections: bool) -> AnonymousDailyLesson | DailyLesson | None:
         if self._bible_service is None or source.book_id is None:

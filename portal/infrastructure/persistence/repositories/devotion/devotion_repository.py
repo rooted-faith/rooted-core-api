@@ -1,4 +1,3 @@
-import json
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -212,7 +211,7 @@ class DevotionRepository:
     async def upsert_translation(self, devotion_id: UUID, locale_id: UUID, reflect: list[str], apply: str, pray: str) -> None:
         await (
             self._session.insert(DevotionTranslation)
-            .values(devotion_id=devotion_id, locale_id=locale_id, reflect=json.dumps(reflect), apply=apply, pray=pray)
+            .values(devotion_id=devotion_id, locale_id=locale_id, reflect=reflect, apply=apply, pray=pray)
             .on_conflict_do_update(
                 index_elements=["devotion_id", "locale_id"],
                 set_={

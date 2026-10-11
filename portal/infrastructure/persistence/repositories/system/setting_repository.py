@@ -2,7 +2,6 @@
 System setting repository.
 """
 
-import json
 from typing import Any, Optional
 from uuid import UUID
 
@@ -17,11 +16,6 @@ class SettingRepository:
 
     def __init__(self, session: Session):
         self._session = session
-
-    @staticmethod
-    def _serialize_jsonb(value: Any) -> str:
-        """asyncpg JSONB bind expects a JSON text string, not a raw Python value."""
-        return json.dumps(value)
 
     def _base_select(self):
         return self._session.select(
@@ -64,7 +58,7 @@ class SettingRepository:
         return items or []
 
     async def update_value(self, setting_id: UUID, value: Any, remark: Optional[str] = None) -> int:
-        values: dict[str, Any] = {"value": self._serialize_jsonb(value)}
+        values: dict[str, Any] = {"value": value}
         if remark is not None:
             values["remark"] = remark
         result = await (
@@ -73,8 +67,7 @@ class SettingRepository:
         return affected_rows(result)
 
     async def insert(self, payload: dict[str, Any]) -> None:
-        insert_payload = {**payload, "value": self._serialize_jsonb(payload["value"])}
-        await self._session.insert(SystemSetting).values(insert_payload).execute()
+        await self._session.insert(SystemSetting).values(payload).execute()
 
     async def insert_if_missing(self, payload: dict[str, Any]) -> bool:
         existing_id = await (

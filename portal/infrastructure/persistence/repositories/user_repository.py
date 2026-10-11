@@ -2,7 +2,6 @@
 User repository implementation (merged UserHandler + AdminUserHandler SQL).
 """
 
-import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -129,11 +128,6 @@ class UserRepository:
     async def user_profile_exists(self, user_id: UUID) -> bool:
         profile_id = await self._session.select(AuthUserProfile.id).where(AuthUserProfile.user_id == user_id).fetchval()
         return bool(profile_id)
-
-    @staticmethod
-    def _serialize_jsonb(value: Optional[dict[str, Any]]) -> Optional[str]:
-        """asyncpg JSONB bind expects a JSON text string, not a raw Python value."""
-        return json.dumps(value) if value is not None else None
 
     def _active_identity_link_by_subject(self, provider: str, provider_subject: str, provider_tenant: Optional[str]):
         return (
@@ -441,7 +435,7 @@ class UserRepository:
                 await self.soft_delete_identity_link(user_id, provider)
             await (
                 self._session.update(AuthIdentityLink)
-                .values(user_id=user_id, additional_data=self._serialize_jsonb(additional_data), updated_at=now, updated_by="identity_link")
+                .values(user_id=user_id, additional_data=additional_data, updated_at=now, updated_by="identity_link")
                 .where(AuthIdentityLink.id == existing["id"])
                 .execute()
             )
@@ -460,7 +454,7 @@ class UserRepository:
                 .values(
                     provider_subject=provider_subject,
                     provider_tenant=provider_tenant,
-                    additional_data=self._serialize_jsonb(additional_data),
+                    additional_data=additional_data,
                     updated_at=now,
                     updated_by="identity_link",
                 )
@@ -477,7 +471,7 @@ class UserRepository:
                 provider=provider,
                 provider_tenant=provider_tenant,
                 provider_subject=provider_subject,
-                additional_data=self._serialize_jsonb(additional_data),
+                additional_data=additional_data,
                 is_deleted=False,
                 created_by="identity_link",
                 updated_by="identity_link",

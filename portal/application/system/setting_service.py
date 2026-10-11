@@ -5,8 +5,6 @@ System setting application service.
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-import ujson
-
 from portal.application.rbac.commands import BulkIdsCommand, DeleteCommand
 from portal.application.system.commands import CreateSettingCommand, UpdateSettingCommand
 from portal.application.system.results import CreateIdResult, SettingListResult, SettingResult
@@ -28,16 +26,6 @@ class SettingService:
     @staticmethod
     def _to_result(row: Setting) -> SettingResult:
         return SettingResult.model_validate(row.model_dump())
-
-    @staticmethod
-    def _coerce_jsonb_value(value: Any) -> Any:
-        """Decode cached/asyncpg JSONB text into a Python value when needed."""
-        if isinstance(value, str):
-            try:
-                return ujson.loads(value)
-            except ujson.JSONDecodeError:
-                return value
-        return value
 
     @staticmethod
     def _validate_value_type(value_type: str, value: Any) -> None:

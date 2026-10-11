@@ -2,7 +2,6 @@
 
 import copy
 import csv
-import json
 import operator
 from datetime import date
 from pathlib import Path
@@ -122,9 +121,7 @@ class StubSession:
         if model is Devotion:
             self.devotions[values["id"]] = dict(values)
         elif model is DevotionTranslation:
-            if not isinstance(values["reflect"], str):  # asyncpg JSONB binds need JSON text
-                raise TypeError("invalid input for JSONB argument (expected str, got list)")
-            self.translations.append({**values, "reflect": json.loads(values["reflect"])})
+            self.translations.append(dict(values))
         elif model is DevotionDailyLessonSchedule:
             if values["date"] in self.schedules:
                 return "INSERT 0 0"
