@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-10; discovery began 2026-10-09). The specification is published; implementation and deployment are not yet delivered.
+Accepted (2026-10-10; discovery began 2026-10-09). The Core API behavior is implemented (2026-11-24, [GitHub #118](https://github.com/rooted-faith/rooted-core-api/issues/118) / ROO-56). The Flutter consumer, live Firebase settings, and deployment verification are tracked separately; `otp_test_mode_enabled` stays `false` until the Flutter consumer is deployed. Operation and smoke steps: [`docs/operations/test-passcodes.md`](../operations/test-passcodes.md).
 
 Specification: [GitHub #117](https://github.com/rooted-faith/rooted-core-api/issues/117), synchronized as [Linear ROO-55](https://linear.app/jayhsia/issue/ROO-55/spec-configure-beta-test-passcodes-with-firebase-remote-config) in Project `rooted core api`, state `Backlog`, labels `spec` and `ready-for-agent` at publication.
 
@@ -70,10 +70,19 @@ The complete array is validated before use. An empty array or any invalid rule d
 
 Flutter consumes the request response through its repository and auth state, updates instructions after each request or resend, and keeps the current manual code-entry and resend countdown. Pre-request copy is neutral; fixed-mode copy directs testers to the passcode provided by the test team. All existing supported App locales must remain consistent.
 
+## Implementation notes
+
+- **Refresh.** Each instance refreshes the server template every 60 seconds in the background, and on demand when an OTP operation finds the snapshot expired. Age counts from when the load started, and an expired snapshot is never used. After a failed load the backend stays in email mode and retries on demand no sooner than 10 seconds later.
+- **Observing a change withdraws challenges.** The first instance that sees a new policy removes every outstanding fixed-code challenge that policy no longer permits, for all instances sharing the Redis store. Re-enabling cannot revive them. If that removal fails, the next successful one removes all fixed-code challenges. Verification rechecks eligibility as well. A change that is made and reverted before any instance loads it is never observed.
+- **Explicit environment.** A missing `ENV` still defaults to `dev` elsewhere, but it does not make test passcodes eligible.
+- **Multiple instances** may hold different snapshots for up to 60 seconds, so a newly enabled or withdrawn identity can see either mode during that time.
+- **Domain rules need at least two labels**: `*@com` and `*@*.com` are invalid. Rules are ASCII only, so internationalized domains and local parts are not supported. Exact-email local parts may not contain `*`, `?`, `\`, brackets, braces, `|`, `^`, or `$`.
+- **Separate Firebase App.** The policy reader uses its own named Firebase App pinned to `rooted-app-dev`, independent of the default App used for push.
+- **Challenge storage.** Emailed challenges keep their previous Redis format, so outstanding emailed codes survive this deployment.
+- **Request logging.** The OTP verification route does not log its request body, because it carries the code.
+
 ## Scope and verification
 
 Implementation spans Core API policy/configuration, OTP challenge handling, mail delivery and response serialization, plus Flutter auth response handling and copy. No new sign-in endpoint, database migration, Portal feature, Google/Apple behavior, or Admin sign-in path is required. Configuration deployment and credentials must be verified separately from repository configuration; this ADR does not claim that live Firebase or Render settings have been changed.
 
 Required implementation verification covers production and unknown-environment blocking; environment/project isolation; exact-email, domain, and subdomain boundaries; invalid and stale remote configuration; missing or malformed fixed-code overrides; request-before-verify, expiry, quota and atomic consumption; withdrawal of fixed-code eligibility; preservation of emailed challenges; delivery failure and removal of the dev logging fallback; and Flutter mode-specific instructions after initial requests and resends. Passing application tests alone does not establish that live project permissions, refresh timing, or deployment isolation are correct.
-
-Implementation, deployment, and tracker changes are outside this discovery step.

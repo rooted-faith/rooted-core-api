@@ -10,6 +10,7 @@ from portal.application.auth.app_apple_auth_service import AppAppleAuthService
 from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.auth.app_google_auth_service import AppGoogleAuthService
 from portal.application.auth.member_login_service import MemberLoginService
+from portal.application.auth.otp_test_passcode_service import OtpTestPasscodeService
 from portal.application.bible.bible_service import BibleService
 from portal.application.bible.chapter_fill_gate import ChapterFillGate
 from portal.application.devotion.devotion_service import DevotionService
@@ -65,6 +66,7 @@ class AppContainer(containers.DeclarativeContainer):
 
     otp_token_store = providers.Factory(OtpTokenCache, redis_client=core.redis_client)
     otp_mailer = providers.Singleton(OtpMailer)
+    otp_test_passcode_service = providers.Singleton(OtpTestPasscodeService, otp_test_policy=core.otp_test_policy, otp_token_store=otp_token_store)
 
     preferences_service = providers.Factory(
         PreferencesService, end_user_repository=end_user_repository, preferences_repository=preferences_repository, bible_repository=bible_repository
@@ -88,6 +90,7 @@ class AppContainer(containers.DeclarativeContainer):
         otp_token_store=otp_token_store,
         otp_mailer=otp_mailer,
         member_login_service=member_login_service,
+        otp_test_passcode_service=otp_test_passcode_service,
     )
     app_google_auth_service = providers.Factory(
         AppGoogleAuthService,

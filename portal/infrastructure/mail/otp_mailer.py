@@ -2,7 +2,6 @@
 Deliver one-time passcodes through Resend (ADR 0008, ADR 0009).
 """
 
-import logging
 from typing import Optional
 
 import httpx
@@ -10,8 +9,6 @@ import httpx
 from portal.config import settings
 from portal.domain.auth.ports import OtpDeliveryError
 from portal.infrastructure.mail.otp_email_content import render_otp_email
-
-logger = logging.getLogger(__name__)
 
 RESEND_BASE_URL = "https://api.resend.com"
 
@@ -29,10 +26,6 @@ class OtpMailer:
 
     async def send_otp(self, email: str, code: str, *, locale: Optional[str]) -> None:
         if not self._api_key:
-            if settings.IS_DEV:
-                # Local/dev without Resend credentials: capture the code from logs instead of failing.
-                logger.info("RESEND_API_KEY unset; OTP for %s in locale %s (code: %s)", email, locale, code)
-                return
             raise OtpDeliveryError("RESEND_API_KEY is not configured")
 
         content = render_otp_email(code, locale=locale, expire_minutes=settings.OTP_CODE_EXPIRE_MINUTES)

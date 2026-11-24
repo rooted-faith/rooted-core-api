@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_serializer
 
+from portal.domain.auth.constants import OtpDeliveryMode
 from portal.domain.common.mixins import UUIDBaseModel
 from portal.libs.consts.enums import Gender
 
@@ -141,6 +142,7 @@ class MemberLoginResult(BaseModel):
 
 
 class OtpRequestResult(BaseModel):
-    """Anti-enumeration acknowledgement after requesting a one-time passcode."""
+    """Anti-enumeration acknowledgement after requesting a passcode."""
 
-    message: str = Field(..., description="Generic success message")
+    message: str = Field(..., description="Acknowledgement for the selected delivery mode")
+    delivery_mode: OtpDeliveryMode = Field(..., description="Delivery mode the backend selected")

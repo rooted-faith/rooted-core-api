@@ -122,7 +122,9 @@ class Configuration(BaseSettings):
     OTP_CODE_EXPIRE_MINUTES: int = int(os.getenv(key="OTP_CODE_EXPIRE_MINUTES", default="10"))
     OTP_REQUEST_MAX_PER_WINDOW: int = int(os.getenv(key="OTP_REQUEST_MAX_PER_WINDOW", default="3"))
     OTP_REQUEST_WINDOW_SECONDS: int = int(os.getenv(key="OTP_REQUEST_WINDOW_SECONDS", default="600"))
-    # [OTP email delivery via Resend. Unset key only logs the code in dev; elsewhere it fails the request.]
+    # [Test passcode override, exactly six ASCII digits — ADR 0016. Missing or malformed uses the backend default; only dev/stg test identities can use it.]
+    OTP_FIXED_CODE: str = os.getenv(key="OTP_FIXED_CODE", default="")
+    # [OTP email delivery via Resend. An unset key fails email-mode requests in every environment.]
     RESEND_API_KEY: str = os.getenv(key="RESEND_API_KEY", default="")
     OTP_EMAIL_SENDER: str = os.getenv(key="OTP_EMAIL_SENDER", default="Rooted <account@rootedfaith.app>")
 
@@ -195,7 +197,7 @@ class Configuration(BaseSettings):
 
         if not self.FIREBASE_CREDENTIALS:
             logger = logging.getLogger(self.APP_NAME)
-            logger.warning("Firebase credentials not found; push notifications will fail until configured")
+            logger.warning("Firebase credentials not found; push notifications and test passcodes are unavailable until configured")
 
         return self
 
@@ -244,6 +246,11 @@ class Configuration(BaseSettings):
             self.RATE_LIMITERS_CONFIG = RateLimitersConfig(**default_config_dict)
 
         return self
+
+    @property
+    def explicit_env(self) -> str | None:
+        """ENV only when it was actually set; the "dev" default must not unlock test-only behavior (ADR 0016)."""
+        return self.ENV if "ENV" in self.model_fields_set else None
 
     @property
     def is_prod(self) -> bool:

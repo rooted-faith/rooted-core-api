@@ -26,3 +26,9 @@ class AuthRoute(LogRoute):
         """
         super().__init__(*args, **kwargs)
         self.auth_config = auth_config  # NOTE: After the request came in, auth_config was None for unknown reasons
+
+
+class UnloggedBodyAuthRoute(AuthRoute):
+    """AuthRoute whose request body carries a one-time secret and must never be logged."""
+
+    log_request_body = False

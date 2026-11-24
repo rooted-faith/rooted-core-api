@@ -6,7 +6,8 @@ from typing import Any, Optional, Protocol
 from uuid import UUID
 
 from portal.application.auth.results import UserDetail, UserSensitive
-from portal.domain.auth.entities import AppleIdentityClaims, GoogleIdentityClaims
+from portal.domain.auth.entities import AppleIdentityClaims, GoogleIdentityClaims, OtpChallenge
+from portal.domain.auth.otp_test_policy import OtpTestPolicy
 
 
 class UserRepositoryPort(Protocol):
@@ -62,20 +63,37 @@ class UserRepositoryPort(Protocol):
 
 
 class OtpTokenPort(Protocol):
-    """Ephemeral one-time passcodes keyed by email (hashed at rest), plus their per-email request quota."""
+    """Ephemeral passcode challenges keyed by email (hashed at rest), plus their per-email request quota."""
 
-    async def store(self, email: str, code_hash: str, ttl_seconds: int) -> None: ...
+    async def store(self, email: str, challenge: OtpChallenge, ttl_seconds: int) -> None:
+        """Replace any live challenge for email."""
+        ...
 
-    async def consume(self, email: str, code_hash: str) -> bool:
-        """Return True and invalidate when the hash matches a live passcode for email."""
+    async def get(self, email: str) -> Optional[OtpChallenge]:
+        """Return the live challenge for email without consuming it."""
+        ...
+
+    async def consume(self, email: str, challenge: OtpChallenge) -> bool:
+        """Atomically remove the live challenge when it equals `challenge`; True for exactly one caller."""
+        ...
+
+    async def list_fixed(self) -> list[tuple[str, OtpChallenge]]:
+        """Return every live fixed-code challenge with its email."""
         ...
 
     async def allow_request(self, email: str, *, max_requests: int, window_seconds: int) -> bool:
         """Count this request against the email's rolling window; False once the window is exhausted."""
         ...
 
-    async def invalidate(self, email: str) -> None:
-        """Drop any live passcode for email (e.g. when its delivery failed)."""
+
+class OtpTestPolicyPort(Protocol):
+    """Remote test passcode policy (ADR 0016)."""
+
+    async def current(self) -> Optional[OtpTestPolicy]:
+        """
+        Return the fresh, validated policy, or None when it is missing, invalid, or expired.
+        The same instance is returned until it is refreshed.
+        """
         ...
 
 

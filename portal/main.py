@@ -14,6 +14,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.httpx import HttpxIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
 from portal.apps import get_main_application
 from portal.config import settings
@@ -32,17 +33,14 @@ def setup_tracing() -> None:
         return
     sentry_sdk.init(
         dsn=settings.SENTRY_URL,
-        integrations=[
-            AsyncPGIntegration(),
-            FastApiIntegration(),
-            HttpxIntegration(),
-            RedisIntegration(),
-            SqlalchemyIntegration(),
-        ],
+        integrations=[AsyncPGIntegration(), FastApiIntegration(), HttpxIntegration(), RedisIntegration(), SqlalchemyIntegration()],
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
         environment=settings.ENV.upper(),
         enable_tracing=True,
+        # Frame variables can hold passcodes, credentials, and the test allowlist (ADR 0016).
+        include_local_variables=False,
+        event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, "code"]),
     )
 
 

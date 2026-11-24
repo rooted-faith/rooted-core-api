@@ -20,6 +20,7 @@ from portal.application.auth.mappers import member_login_result_to_api, otp_requ
 from portal.application.auth.refresh_token_service import RefreshTokenService
 from portal.container import Container
 from portal.libs.depends.rate_limiters import WRITE_RATE_LIMITERS
+from portal.route_classes.auth_route import UnloggedBodyAuthRoute
 from portal.routers.auth_router import AuthRouter
 from portal.serializers.apis.v1.auth import (
     MemberAppleLoginRequest,
@@ -44,8 +45,9 @@ router: AuthRouter = AuthRouter()
     operation_id="request_member_otp",
     summary="Request an email one-time passcode",
     description=(
-        "Email a six-digit passcode to the address. The acknowledgement is identical whether or not the "
-        "email has an account, and repeated requests for the same email are throttled (429)."
+        "Email a six-digit passcode to the address, or expect the shared test passcode for an eligible test "
+        "identity in a non-production environment; `deliveryMode` reports which. The acknowledgement never "
+        "depends on whether the email has an account, and repeated requests for the same email are throttled (429)."
     ),
 )
 @inject
@@ -61,6 +63,7 @@ async def app_request_otp(body: MemberOtpRequest, app_auth_service: AppAuthServi
     status_code=status.HTTP_200_OK,
     require_auth=False,
     dependencies=[*WRITE_RATE_LIMITERS],
+    route_class_override=UnloggedBodyAuthRoute,
     operation_id="verify_member_otp",
     summary="Verify an email one-time passcode",
     description="Redeem a live passcode to sign in, provisioning the End user on first use. Every rejection returns the same generic 401.",
