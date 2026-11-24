@@ -91,6 +91,8 @@ class Configuration(BaseSettings):
     REDIS_URL: str | None = os.getenv(key="REDIS_URL")
     REDIS_DB: int = int(os.getenv(key="REDIS_DB", default="0"))
     RATE_LIMITER_REDIS_DB: int = int(os.getenv(key="RATE_LIMITER_REDIS_DB", default="0"))
+    # Single trusted client-IP header for rate limiting (e.g. True-Client-IP). Unset = connection IP only.
+    TRUSTED_CLIENT_IP_HEADER: str | None = os.getenv(key="TRUSTED_CLIENT_IP_HEADER") or None
 
     # [Database]
     DATABASE_HOST: str = os.getenv(key="DATABASE_HOST", default="localhost")

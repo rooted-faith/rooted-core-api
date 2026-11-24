@@ -10,48 +10,33 @@ Different endpoint types rate limiters strategy:
 - Read endpoint: Looser, because read operations are less burdened on the system
 - Write endpoint: Stricter, because write operations need more resources
 
-When REDIS_URL is set, limiters use RedisBucket for distributed rate limiting across workers.
-Otherwise in-memory limiters are used (per-process).
+Limiters keep one sliding-window key per client identifier (resolved client IP + path).
+When REDIS_URL is set, Redis is primary and shared across workers; on Redis failure the
+gateway falls back to per-worker in-memory limiters. Lifespan attaches the gateway to
+the public app and every mounted sub-app (request.app is the sub-app inside mounts).
 
 Configuration file location: env/rate_limiters.yaml
 """
 
-from fastapi import Depends, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import HTTPException
-from fastapi_limiter.depends import RateLimiter
-from pyrate_limiter import Duration, Limiter, Rate
-from pyrate_limiter.buckets.redis_bucket import RedisBucket
+from redis.asyncio import Redis
+from starlette.routing import Mount
 
 from portal.config import settings
-from portal.libs.rate_limit.config import RateLimiterConfig
+from portal.libs.client_ip import resolved_client_ip
+from portal.libs.rate_limit.config import RateLimiterConfig, RateLimitersConfig
+from portal.libs.rate_limit.gateway import RateLimiterGateway
+from portal.libs.rate_limit.sliding_window import MemorySlidingWindowLimiter, RedisSlidingWindowLimiter
 
 
 async def default_identifier(request: Request) -> str:
     """
-    Identifier for rate limit key, same as fastapi-limiter: IP + path.
+    Identifier for rate limit key: resolved client IP + path.
+    Requests without a usable address share "unknown".
     """
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        ip = forwarded.split(",")[0].strip()
-    elif request.client:
-        ip = request.client.host
-    else:
-        ip = "127.0.0.1"
-    return f"{ip}:{request.scope['path']}"
-
-
-def create_rate_limiters(config: RateLimiterConfig) -> list:
-    """
-    Create rate limiters list from RateLimiterConfig Model
-
-    :param config: Rate limiter config Model
-    :return: Rate limiters list
-    """
-    return [
-        Depends(RateLimiter(limiter=Limiter(Rate(config.short.times, Duration.SECOND * config.short.seconds)))),
-        Depends(RateLimiter(limiter=Limiter(Rate(config.medium.times, Duration.SECOND * config.medium.seconds)))),
-        Depends(RateLimiter(limiter=Limiter(Rate(config.long.times, Duration.SECOND * config.long.seconds)))),
-    ]
+    client_ip = resolved_client_ip(request, trusted_header=settings.TRUSTED_CLIENT_IP_HEADER)
+    return f"{client_ip or 'unknown'}:{request.scope['path']}"
 
 
 def get_rate_limiters_config(config_type: str = "default") -> RateLimiterConfig:
@@ -62,86 +47,71 @@ def get_rate_limiters_config(config_type: str = "default") -> RateLimiterConfig:
     :return:
     """
     if not settings.RATE_LIMITERS_CONFIG:
-        # If configuration is not loaded, return default value
         from portal.libs.rate_limit.config import RateLimitWindow
 
         return RateLimiterConfig(
             short=RateLimitWindow(times=3, seconds=1), medium=RateLimitWindow(times=20, seconds=30), long=RateLimitWindow(times=400, seconds=3600)
         )
 
-    # Get configuration by configuration type
     config_map = {"default": settings.RATE_LIMITERS_CONFIG.default, "read": settings.RATE_LIMITERS_CONFIG.read, "write": settings.RATE_LIMITERS_CONFIG.write}
-
     return config_map.get(config_type, settings.RATE_LIMITERS_CONFIG.default)
 
 
-async def create_redis_rate_limiters(redis) -> dict[str, list[Limiter]]:
+def create_memory_rate_limiters(full_config: RateLimitersConfig | None = None) -> dict[str, list[MemorySlidingWindowLimiter]]:
+    """
+    Create per-process in-memory limiters for default, read, and write.
+
+    :param full_config: optional full config; otherwise settings / built-in defaults
+    :return: Dict mapping config_type to its limiters
+    """
+    result: dict[str, list[MemorySlidingWindowLimiter]] = {}
+    for config_type in ("default", "read", "write"):
+        config = getattr(full_config, config_type) if full_config is not None else get_rate_limiters_config(config_type)
+        result[config_type] = [MemorySlidingWindowLimiter(config)]
+    return result
+
+
+async def create_redis_rate_limiters(redis: Redis) -> dict[str, list[RedisSlidingWindowLimiter]]:
     """
     Create Redis-backed limiters for default, read, and write config types.
-    Each config type has three limiters (short, medium, long). Caller must pass
-    an async Redis connection (e.g. from redis.asyncio.from_url).
 
     :param redis: Async Redis client (redis.asyncio.Redis)
-    :return: Dict mapping config_type to list of three Limiters (short, medium, long)
+    :return: Dict mapping config_type to its limiters
     """
-    prefix = f"{settings.APP_NAME}_limiter"
-    result: dict[str, list[Limiter]] = {}
+    return {config_type: [RedisSlidingWindowLimiter(redis, config_type, get_rate_limiters_config(config_type))] for config_type in ("default", "read", "write")}
 
-    for config_type in ("default", "read", "write"):
-        config = get_rate_limiters_config(config_type)
-        short_bucket = await RedisBucket.init(  # noqa
-            [Rate(config.short.times, Duration.SECOND * config.short.seconds)], redis, f"{prefix}_{config_type}_short"
-        )
-        medium_bucket = await RedisBucket.init(  # noqa
-            [Rate(config.medium.times, Duration.SECOND * config.medium.seconds)], redis, f"{prefix}_{config_type}_medium"
-        )
-        long_bucket = await RedisBucket.init(  # noqa
-            [Rate(config.long.times, Duration.SECOND * config.long.seconds)], redis, f"{prefix}_{config_type}_long"
-        )
-        result[config_type] = [Limiter(short_bucket), Limiter(medium_bucket), Limiter(long_bucket)]
 
-    return result
+def attach_rate_limiters(app: FastAPI, gateway: RateLimiterGateway | None) -> None:
+    """
+    Set the rate limiter gateway on the app and every mounted FastAPI sub-app.
+    Inside a mounted app, request.app is the sub-app, so the root app's state alone is not visible there.
+    """
+    app.state.rate_limiter_gateway = gateway
+    for route in app.routes:
+        if isinstance(route, Mount) and isinstance(route.app, FastAPI):
+            attach_rate_limiters(route.app, gateway)
 
 
 class RedisRateLimiterDependency:
     """
-    FastAPI dependency that applies Redis-backed rate limiters for a config type.
-    Requires app.state.rate_limiters to be set (done in lifespan when REDIS_URL is set).
+    FastAPI dependency that applies rate limiters for a config type via the attached gateway.
     """
 
     def __init__(self, config_type: str):
         self.config_type = config_type
 
     async def __call__(self, request: Request) -> None:
-        limiters = getattr(request.app.state, "rate_limiters", None)
-        if not limiters or self.config_type not in limiters:
+        gateway: RateLimiterGateway | None = getattr(request.app.state, "rate_limiter_gateway", None)
+        if gateway is None:
             return
         identifier = await default_identifier(request)
-        for limiter in limiters[self.config_type]:
-            acquired = await limiter.try_acquire_async(identifier, blocking=False)
-            if not acquired:
-                raise HTTPException(status_code=429, detail="Too Many Requests")
+        if not await gateway.acquire(self.config_type, identifier):
+            raise HTTPException(status_code=429, detail="Too Many Requests")
 
-
-def _get_rate_limiters_dependencies() -> tuple[list, list, list]:
-    """
-    Return (DEFAULT_RATE_LIMITERS, READ_RATE_LIMITERS, WRITE_RATE_LIMITERS).
-    Uses Redis-backed dependency when REDIS_URL is set, otherwise in-memory limiters.
-    """
-    if settings.REDIS_URL:
-        return ([Depends(RedisRateLimiterDependency("default"))], [Depends(RedisRateLimiterDependency("read"))], [Depends(RedisRateLimiterDependency("write"))])
-    return (
-        create_rate_limiters(get_rate_limiters_config("default")),
-        create_rate_limiters(get_rate_limiters_config("read")),
-        create_rate_limiters(get_rate_limiters_config("write")),
-    )
-
-
-_default, _read, _write = _get_rate_limiters_dependencies()
 
 # Default rate limiter (for general endpoints)
-DEFAULT_RATE_LIMITERS = _default
+DEFAULT_RATE_LIMITERS = [Depends(RedisRateLimiterDependency("default"))]
 # Read endpoint rate limiter (looser)
-READ_RATE_LIMITERS = _read
+READ_RATE_LIMITERS = [Depends(RedisRateLimiterDependency("read"))]
 # Write endpoint rate limiter (stricter)
-WRITE_RATE_LIMITERS = _write
+WRITE_RATE_LIMITERS = [Depends(RedisRateLimiterDependency("write"))]
