@@ -2,6 +2,7 @@
 Util functions for lifespan
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -32,6 +33,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Failed to register event handlers: %s", e)
 
+    otp_test_policy_watch = None
+    if hasattr(app, "container"):
+        try:
+            otp_test_policy_watch = asyncio.create_task(app.container.app.otp_test_passcode_service().watch())
+        except Exception as e:
+            logger.warning("Failed to start watching the test passcode policy: %s", type(e).__name__)
+
     redis_connection = None
     if settings.REDIS_URL:
         try:
@@ -42,6 +50,9 @@ async def lifespan(app: FastAPI):
             logger.error("Failed to initialize Redis rate limiters: %s", e)
             app.state.rate_limiters = None
     yield
+
+    if otp_test_policy_watch is not None:
+        otp_test_policy_watch.cancel()
 
     if redis_connection is not None:
         try:

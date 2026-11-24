@@ -5,6 +5,7 @@ Core infrastructure container: config, database, redis, security providers.
 from dependency_injector import containers, providers
 
 from portal.config import settings
+from portal.infrastructure.firebase.firebase_otp_test_policy import FirebaseOtpTestPolicy
 from portal.libs.database import PostgresConnection, RedisPool, Session
 from portal.libs.database.session_proxy import SessionProxy
 from portal.providers.apple_id_token_verifier import AppleIdTokenVerifier
@@ -37,3 +38,4 @@ class CoreContainer(containers.DeclarativeContainer):
     google_id_token_verifier = providers.Singleton(GoogleIdTokenVerifier)
     apple_id_token_verifier = providers.Singleton(AppleIdTokenVerifier)
     push_gateway = providers.Singleton(FirebasePushGateway, credentials_dict=config.FIREBASE_CREDENTIALS)
+    otp_test_policy = providers.Singleton(FirebaseOtpTestPolicy, credentials_dict=config.FIREBASE_CREDENTIALS)

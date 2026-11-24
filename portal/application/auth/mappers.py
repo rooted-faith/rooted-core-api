@@ -97,4 +97,4 @@ def otp_request_result_to_api(result: OtpRequestResult) -> MemberOtpRequestRespo
     :param result:
     :return:
     """
-    return MemberOtpRequestResponse(message=result.message)
+    return MemberOtpRequestResponse(message=result.message, delivery_mode=result.delivery_mode)

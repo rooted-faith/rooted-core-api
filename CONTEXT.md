@@ -153,7 +153,7 @@ A short-lived numeric code emailed to a person to authenticate an **End user** â
 _Avoid_: Magic link (superseded by ADR 0008), treating an OTP as a persisted/product-facing entity, phone-delivered OTP (phone is not a Rooted credential identifier)
 
 **Test passcode**:
-An internally shared numeric sign-in code for dedicated test **End user** identities in Rooted's isolated beta environment. Unlike an email-delivered **OTP**, it does not prove ownership of a mailbox.
+An internally shared numeric sign-in code for dedicated test **End user** identities in Rooted's isolated beta environment. Unlike an email-delivered **OTP**, it does not prove ownership of a mailbox, even though first use creates the same **Auth credential** and **End user** as an emailed passcode (ADR 0016).
 _Avoid_: treating it as evidence of verified mailbox ownership, using personal accounts as shared test identities
 
 **Identity provider**:

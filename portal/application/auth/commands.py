@@ -24,7 +24,7 @@ class AppOtpVerifyCommand(BaseModel):
     """Verify a one-time passcode and sign in (or provision) the End user."""
 
     email: str = Field(..., description="End user email")
-    code: str = Field(..., description="One-time passcode")
+    code: str = Field(..., description="One-time passcode", repr=False)
 
 
 class LoginWithoutValidateCommand(BaseModel):

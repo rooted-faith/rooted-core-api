@@ -99,8 +99,14 @@ async def test_network_failure_raises_delivery_error():
 
 
 @pytest.mark.asyncio
-async def test_missing_api_key_outside_dev_fails_delivery(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(settings, "IS_DEV", False)
+@pytest.mark.parametrize("is_dev", [True, False])
+async def test_missing_api_key_fails_delivery_in_every_environment(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, is_dev: bool):
+    monkeypatch.setattr(settings, "IS_DEV", is_dev)
+    caplog.set_level("DEBUG")
+    seen, handler = _capture()
 
     with pytest.raises(OtpDeliveryError):
-        await _mailer(lambda request: httpx.Response(200), api_key="").send_otp("jay@example.com", "123456", locale="en")
+        await _mailer(handler, api_key="").send_otp("jay@example.com", "482913", locale="en")
+
+    assert seen == []
+    assert "482913" not in caplog.text

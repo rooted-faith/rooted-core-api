@@ -2,12 +2,14 @@
 Auth domain entities.
 """
 
+import hashlib
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from portal.domain.auth.constants import OtpDeliveryMode
 from portal.domain.common.mixins import UUIDModel
 from portal.libs.consts.enums import Gender
 
@@ -26,6 +28,19 @@ class User(UUIDModel):
     preferred_name: Optional[str] = Field(default=None, description="Preferred display name")
     preferred_locale_id: Optional[UUID] = Field(default=None, description="Preferred locale id")
     gender: Optional[Gender] = Field(default=None, description="Gender")
+
+
+class OtpChallenge(BaseModel):
+    """One outstanding passcode challenge (code hashed); its origin is independent of the numeric value."""
+
+    model_config = ConfigDict(frozen=True)
+
+    delivery_mode: OtpDeliveryMode = Field(..., description="Origin of the challenge")
+    code_hash: str = Field(..., description="Hash of the passcode, bound to the email")
+
+    @classmethod
+    def of(cls, email: str, code: str, delivery_mode: OtpDeliveryMode) -> "OtpChallenge":
+        return cls(delivery_mode=delivery_mode, code_hash=hashlib.sha256(f"{email}:{code}".encode("utf-8")).hexdigest())
 
 
 class GoogleIdentityClaims(BaseModel):

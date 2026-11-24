@@ -4,7 +4,7 @@ LogRouting
 
 import json
 import time
-from typing import Any, Callable, Dict
+from typing import Any, Callable, ClassVar, Dict
 
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
@@ -15,6 +15,8 @@ from portal.libs.logger import logger
 
 class LogRoute(APIRoute):
     """LogRouting"""
+
+    log_request_body: ClassVar[bool] = True
 
     @staticmethod
     def _is_sensitive_key(key: str) -> bool:
@@ -99,7 +101,7 @@ class LogRoute(APIRoute):
             # Filter sensitive parameters from query params
             filtered_params = self.filter_sensitive_params(dict(request.query_params))
             request_message = {"http.request.method": request.method, "http.request.path": request.url.path, "http.request.params": filtered_params}
-            if request.method in ("POST", "PUT", "PATCH"):
+            if self.log_request_body and request.method in ("POST", "PUT", "PATCH"):
                 try:
                     body_str = request_body.decode()
                     # Filter sensitive information from request body

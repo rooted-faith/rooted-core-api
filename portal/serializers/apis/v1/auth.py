@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from portal.domain.auth.constants import OtpDeliveryMode
 from portal.domain.common.mixins import UUIDModel
 from portal.serializers.mixins import LoginResponse, TokenResponse
 
@@ -22,7 +23,7 @@ class MemberOtpVerifyRequest(BaseModel):
     """Verify a one-time passcode and sign in."""
 
     email: EmailStr = Field(..., description="End user email")
-    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="Six-digit one-time passcode")
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="Six-digit one-time passcode", repr=False)
 
 
 class MemberGoogleLoginRequest(BaseModel):
@@ -40,7 +41,12 @@ class MemberAppleLoginRequest(BaseModel):
 class MemberOtpRequestResponse(BaseModel):
     """Anti-enumeration acknowledgement."""
 
-    message: str = Field(..., description="Generic success message")
+    message: str = Field(..., description="Acknowledgement for the selected delivery mode")
+    delivery_mode: OtpDeliveryMode = Field(
+        ...,
+        description="How to obtain the passcode: `email` (sent to the address) or `fixed` (test passcode from the test team, no email sent)",
+        serialization_alias="deliveryMode",
+    )
 
 
 class MemberInfo(UUIDModel):
