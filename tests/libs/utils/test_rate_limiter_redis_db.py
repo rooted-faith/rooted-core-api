@@ -22,6 +22,7 @@ from starlette.requests import Request
 from portal.config import settings
 from portal.libs.depends.rate_limiters import RedisRateLimiterDependency
 from portal.libs.rate_limit.config import RateLimiterConfig, RateLimitersConfig, RateLimitWindow
+from portal.libs.rate_limit.gateway import RateLimiterGateway
 from portal.libs.utils.lifespan import lifespan
 
 REDIS_IMAGE = "redis:7.4-alpine"
@@ -149,7 +150,7 @@ def _mock_request(app: FastAPI, path: str = "/rate-limit-probe") -> Request:
 async def _cleanup_limiter_keys(url: str, prefix: str, db: int = 0) -> None:
     client = redis_from_url(url, db=db, encoding="utf-8", decode_responses=True)
     try:
-        keys = [key async for key in client.scan_iter(match=f"{prefix}_limiter*")]
+        keys = [key async for key in client.scan_iter(match=f"{prefix}:rate_limiter*")]
         if keys:
             await client.delete(*keys)
     finally:
@@ -166,13 +167,14 @@ async def test_lifespan_initializes_limiters_on_single_db_redis_with_default_db(
     monkeypatch.setattr(settings, "REDIS_URL", single_db_redis_url)
     monkeypatch.setattr(settings, "APP_NAME", prefix)
     monkeypatch.setattr(settings, "RATE_LIMITERS_CONFIG", _tight_limiters_config())
-    # Force the Configuration default regardless of a local .env override.
     monkeypatch.setattr(settings, "RATE_LIMITER_REDIS_DB", 0)
+    monkeypatch.setattr(settings, "TRUSTED_CLIENT_IP_HEADER", None)
 
     app = FastAPI()
     async with lifespan(app):
-        assert app.state.rate_limiters is not None
-        assert set(app.state.rate_limiters) == {"default", "read", "write"}
+        gateway = getattr(app.state, "rate_limiter_gateway", None)
+        assert isinstance(gateway, RateLimiterGateway)
+        assert gateway.has_redis_limiters() is True
 
         for config_type in ("default", "read", "write"):
             dependency = RedisRateLimiterDependency(config_type)
@@ -186,15 +188,24 @@ async def test_lifespan_initializes_limiters_on_single_db_redis_with_default_db(
 
 
 @pytest.mark.asyncio
-async def test_lifespan_fails_when_rate_limiter_db_out_of_range(single_db_redis_url: str, monkeypatch: pytest.MonkeyPatch):
+async def test_lifespan_falls_back_to_memory_when_rate_limiter_db_out_of_range(single_db_redis_url: str, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "REDIS_URL", single_db_redis_url)
     monkeypatch.setattr(settings, "APP_NAME", f"rooted-rl-bad-{uuid.uuid4().hex}")
     monkeypatch.setattr(settings, "RATE_LIMITER_REDIS_DB", 10)
     monkeypatch.setattr(settings, "RATE_LIMITERS_CONFIG", _tight_limiters_config())
+    monkeypatch.setattr(settings, "TRUSTED_CLIENT_IP_HEADER", None)
 
     app = FastAPI()
     async with lifespan(app):
-        assert app.state.rate_limiters is None
+        gateway = app.state.rate_limiter_gateway
+        assert isinstance(gateway, RateLimiterGateway)
+        assert gateway.has_redis_limiters() is False
+        dependency = RedisRateLimiterDependency("default")
+        request = _mock_request(app)
+        await dependency(request)
+        with pytest.raises(HTTPException) as raised:
+            await dependency(request)
+        assert raised.value.status_code == 429
 
 
 @pytest.mark.asyncio
@@ -204,10 +215,10 @@ async def test_explicit_rate_limiter_db_override_works(multi_db_redis_url: str, 
     monkeypatch.setattr(settings, "APP_NAME", prefix)
     monkeypatch.setattr(settings, "RATE_LIMITER_REDIS_DB", 1)
     monkeypatch.setattr(settings, "RATE_LIMITERS_CONFIG", _tight_limiters_config())
+    monkeypatch.setattr(settings, "TRUSTED_CLIENT_IP_HEADER", None)
 
     app = FastAPI()
     async with lifespan(app):
-        assert app.state.rate_limiters is not None
         dependency = RedisRateLimiterDependency("default")
         request = _mock_request(app)
         await dependency(request)
