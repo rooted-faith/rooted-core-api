@@ -90,7 +90,7 @@ class Configuration(BaseSettings):
     # [Redis]
     REDIS_URL: str | None = os.getenv(key="REDIS_URL")
     REDIS_DB: int = int(os.getenv(key="REDIS_DB", default="0"))
-    RATE_LIMITER_REDIS_DB: int = int(os.getenv(key="RATE_LIMITER_REDIS_DB", default="10"))
+    RATE_LIMITER_REDIS_DB: int = int(os.getenv(key="RATE_LIMITER_REDIS_DB", default="0"))
 
     # [Database]
     DATABASE_HOST: str = os.getenv(key="DATABASE_HOST", default="localhost")
