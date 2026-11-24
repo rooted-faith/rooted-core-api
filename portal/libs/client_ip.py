@@ -1,5 +1,5 @@
 """
-Client IP resolution shared by rate limiting (ROO-60) and later audit / refresh-token IP (ROO-65).
+Client IP resolution shared by rate limiting, request context, audit logs, and refresh tokens.
 
 When TRUSTED_CLIENT_IP_HEADER is unset, only the transport peer is used.
 When set, that single header may supply the client IP if it is a valid address;

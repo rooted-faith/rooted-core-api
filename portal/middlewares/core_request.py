@@ -9,19 +9,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from portal.application.auth.results import HeaderInfo
 from portal.application.locale.locale_service import LocaleService
+from portal.config import settings
 from portal.container import Container
+from portal.libs.client_ip import resolved_client_ip
 from portal.libs.contexts.request_context import RequestContext, reset_request_context, set_request_context
 from portal.libs.contexts.request_session_context import reset_request_session, set_request_session
 
 
 def _resolve_ip(request: Request) -> str | None:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    xri = request.headers.get("x-real-ip")
-    if xri:
-        return xri.strip()
-    return request.client.host if request.client else None
+    """Same trusted client IP resolution as HTTP rate limiting (ROO-60 / ROO-65)."""
+    return resolved_client_ip(request, trusted_header=settings.TRUSTED_CLIENT_IP_HEADER)
 
 
 class CoreRequestMiddleware(BaseHTTPMiddleware):
