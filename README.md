@@ -46,6 +46,12 @@ cp example.env .env
 
 Edit the `.env` file with your configuration values.
 
+#### Redis
+
+- `REDIS_URL` — connection URL for application cache and (when set) Redis-backed rate limiters.
+- `REDIS_DB` — logical DB for the application Redis pool (default `0`).
+- `RATE_LIMITER_REDIS_DB` — logical DB for rate limiters (default `0`). Keep `0` on Redis instances that only expose a single logical database. Override only when Redis is configured with additional DBs. Rate limiter keys are prefixed with `APP_NAME`, so sharing DB `0` with the application cache is safe. A DB path (`redis://host:6379/1`) or `db` query parameter on `REDIS_URL` can override the client `db` argument.
+
 ### 4. Database Setup
 
 #### Run Database Migrations
