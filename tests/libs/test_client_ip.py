@@ -1,5 +1,5 @@
 """
-Client IP resolution for rate limiting (and later ROO-65 consumers).
+Client IP resolution for rate limiting, request context, audit, and refresh tokens.
 """
 
 import logging
