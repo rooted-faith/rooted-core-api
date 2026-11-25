@@ -58,6 +58,13 @@ class BibleChapter(BaseModel):
     verses: list[BibleVerse] = Field(default_factory=list)
 
 
+class BibleChapterAddress(BaseModel):
+    """Address of one chapter within a version."""
+
+    book_code: str = Field(...)
+    chapter: int = Field(...)
+
+
 class BibleSearchHit(BaseModel):
     """Single search hit."""
 

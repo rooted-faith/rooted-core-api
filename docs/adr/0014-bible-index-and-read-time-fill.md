@@ -20,7 +20,8 @@ Accepted (2026-09-10). Supersedes ADR 0004 decision 2 insofar as it implied pre-
 
 - CLI imports metadata and index only (`dump-bible --meta-only`); runtime uses `YVP_APP_KEY` on the miss path.
 - `bible.verses.content` is replaced by nullable `lines` (JSONB) and nullable `search_text` (plain Scripture). Unfilled means both null. Add nullable `verse_end` for merged verses (`ev`). Existing imported plain text must be cleared before this ships. Wipe nulls `lines` and `search_text` and keeps address rows.
-- `search_text` is written in the same fill as `lines`: fragment types `text`, `nd`, `wj`, `pn` in order; skip Heading lines and Footnote fragments. No tsvector / GIN until search ships.
+- `search_text` is written in the same fill as `lines`: fragment types `text`, `nd`, `wj`, `pn` in order; skip Heading lines and Footnote fragments; separate lines with a space. No tsvector / GIN until search ships.
+- Each stored line carries `continues`, so publisher paragraph boundaries survive verse-per-row storage (ROO-67). Lines filled earlier lack it. They are upgraded by a targeted chapter refill that replaces bodies after a successful fetch instead of wiping first; see [the contract and procedure](../operations/bible-paragraph-boundaries.md).
 - Fill failure fails the whole Today or chapter request (no Scripture-less 200).
 - Human-authored Alembic; agents do not add revisions.
 - Local verse search is not implemented yet; the column is the seam.

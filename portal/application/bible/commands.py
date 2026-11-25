@@ -23,6 +23,21 @@ class SearchVersesCommand(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
+class RefillChapterCommand(BaseModel):
+    """Refill one filled chapter of an active Bible version."""
+
+    youversion_bible_id: str = Field(...)
+    book_code: str = Field(...)
+    chapter: int = Field(..., ge=1)
+
+
+class ListLegacyChaptersQuery(BaseModel):
+    """Find filled chapters that have no paragraph boundaries."""
+
+    youversion_bible_id: str = Field(...)
+    book_code: str | None = Field(default=None)
+
+
 class ReadPassageQuery(BaseModel):
     """Resolve a version-independent Passage range in a chosen Bible version."""
 

@@ -8,127 +8,31 @@ HTML fixtures are the stub YouVersion return value — no live YVP_APP_KEY.
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
-from uuid import uuid4
 
 import pytest
 
 from portal.application.bible.bible_service import BibleService
+from portal.application.bible.commands import RefillChapterCommand
+from portal.application.bible.results import ChapterRefillOutcome
 from portal.domain.bible.entities import BibleChapter, BibleVerse
-from portal.exceptions.responses import ApiBaseException
+from portal.exceptions.responses import ApiBaseException, NotFoundException
 from portal.infrastructure.youversion.youversion_http_client import YouVersionHttpError
-
-FIXTURES = Path(__file__).resolve().parents[2] / "data" / "bible"
+from tests.fixtures.bible_chapter_fill import StubBibleRepository, StubYouVersion, legacy_chapter, load_passage, unfilled_chapter
 
 
 @pytest.fixture
 def gen2_passage() -> dict:
-    return json.loads((FIXTURES / "gen2_html.json").read_text(encoding="utf-8"))
+    return load_passage("gen2")
 
 
 @pytest.fixture
 def psa1_passage() -> dict:
-    return json.loads((FIXTURES / "psa1_html.json").read_text(encoding="utf-8"))
+    return load_passage("psa1")
 
 
 @pytest.fixture
 def mat5_passage() -> dict:
-    return json.loads((FIXTURES / "mat5_html.json").read_text(encoding="utf-8"))
-
-
-class StubYouVersion:
-    def __init__(self, passages: dict[str, dict] | None = None, error: Exception | None = None, delay_sec: float = 0.0):
-        self._passages = passages or {}
-        self._error = error
-        self._delay_sec = delay_sec
-        self.calls: list[tuple[str, str]] = []
-
-    async def get_bible_metadata(self, bible_id: str) -> dict:
-        raise NotImplementedError
-
-    async def get_bible_index(self, bible_id: str) -> dict:
-        raise NotImplementedError
-
-    async def get_chapter_passage(self, bible_id: str, chapter_usfm: str) -> dict:
-        self.calls.append((bible_id, chapter_usfm))
-        if self._delay_sec:
-            await asyncio.sleep(self._delay_sec)
-        if self._error is not None:
-            raise self._error
-        key = f"{bible_id}:{chapter_usfm}"
-        if key not in self._passages:
-            raise YouVersionHttpError(404, f"/v1/bibles/{bible_id}/passages/{chapter_usfm}")
-        return self._passages[key]
-
-
-class StubBibleRepository:
-    def __init__(self, chapter: BibleChapter):
-        self._chapter = chapter
-        self.write_calls: list[list[dict]] = []
-        self.fetch_calls = 0
-
-    async def fetch_active_versions(self, language=None):
-        return []
-
-    async def version_is_active(self, bible_version_id):
-        return True
-
-    async def fetch_books(self, bible_version_id):
-        return []
-
-    async def fetch_chapter(self, book_id, chapter):
-        self.fetch_calls += 1
-        if self._chapter is None:
-            return None
-        return BibleChapter(
-            bible_version_id=self._chapter.bible_version_id,
-            youversion_bible_id=self._chapter.youversion_bible_id,
-            bible_title=self._chapter.bible_title,
-            book_id=self._chapter.book_id,
-            book_code=self._chapter.book_code,
-            book_name=self._chapter.book_name,
-            chapter=self._chapter.chapter,
-            verses=[BibleVerse(passage_id=verse.passage_id, verse=verse.verse, verse_end=verse.verse_end, lines=verse.lines) for verse in self._chapter.verses],
-        )
-
-    async def search_verses(self, q, bible_version_id, book_id, limit, offset):
-        raise NotImplementedError
-
-    async def write_chapter_fill(self, book_id, chapter, fills: list[dict]) -> None:
-        self.write_calls.append(fills)
-        by_verse = {item["verse"]: item for item in fills}
-        updated = []
-        for verse in self._chapter.verses:
-            fill = by_verse.get(verse.verse)
-            if fill is None:
-                updated.append(verse)
-                continue
-            updated.append(BibleVerse(passage_id=verse.passage_id, verse=verse.verse, verse_end=fill.get("verse_end"), lines=fill["lines"]))
-        self._chapter = BibleChapter(
-            bible_version_id=self._chapter.bible_version_id,
-            youversion_bible_id=self._chapter.youversion_bible_id,
-            bible_title=self._chapter.bible_title,
-            book_id=self._chapter.book_id,
-            book_code=self._chapter.book_code,
-            book_name=self._chapter.book_name,
-            chapter=self._chapter.chapter,
-            verses=updated,
-        )
-
-
-def _unfilled_chapter(*, book_code: str, chapter: int, verses: list[int], youversion_bible_id: str = "1392") -> BibleChapter:
-    book_id = uuid4()
-    return BibleChapter(
-        bible_version_id=uuid4(),
-        youversion_bible_id=youversion_bible_id,
-        bible_title="當代譯本修訂版",
-        book_id=book_id,
-        book_code=book_code,
-        book_name=book_code,
-        chapter=chapter,
-        verses=[BibleVerse(passage_id=f"{book_code}.{chapter}.{verse}", verse=verse, lines=None) for verse in verses],
-    )
+    return load_passage("mat5")
 
 
 def _verse(result: BibleChapter, number: int) -> BibleVerse:
@@ -137,7 +41,7 @@ def _verse(result: BibleChapter, number: int) -> BibleVerse:
 
 @pytest.mark.asyncio
 async def test_get_chapter_fills_mid_verse_heading_in_gen_2(gen2_passage):
-    chapter = _unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
+    chapter = unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
     youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
     service = BibleService(StubBibleRepository(chapter), youversion)
 
@@ -158,7 +62,7 @@ async def test_get_chapter_fills_mid_verse_heading_in_gen_2(gen2_passage):
 
 @pytest.mark.asyncio
 async def test_get_chapter_sets_verse_end_for_merged_psalm_verse(psa1_passage):
-    chapter = _unfilled_chapter(book_code="PSA", chapter=1, verses=[1, 3, 4, 5, 6])
+    chapter = unfilled_chapter(book_code="PSA", chapter=1, verses=[1, 3, 4, 5, 6])
     youversion = StubYouVersion(passages={"1392:PSA.1": psa1_passage})
     service = BibleService(StubBibleRepository(chapter), youversion)
 
@@ -174,7 +78,7 @@ async def test_get_chapter_sets_verse_end_for_merged_psalm_verse(psa1_passage):
 
 @pytest.mark.asyncio
 async def test_get_chapter_keeps_footnote_and_styles_inline(mat5_passage):
-    chapter = _unfilled_chapter(book_code="MAT", chapter=5, verses=list(range(1, 49)))
+    chapter = unfilled_chapter(book_code="MAT", chapter=5, verses=list(range(1, 49)))
     html = {
         **mat5_passage,
         "content": mat5_passage["content"].replace(
@@ -215,7 +119,7 @@ async def test_get_chapter_keeps_footnote_and_styles_inline(mat5_passage):
 async def test_get_chapter_concurrent_miss_shares_one_youversion_call(gen2_passage):
     from portal.application.bible.chapter_fill_gate import ChapterFillGate
 
-    chapter = _unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
+    chapter = unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
     youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage}, delay_sec=0.05)
     repo = StubBibleRepository(chapter)
     gate = ChapterFillGate()
@@ -231,7 +135,7 @@ async def test_get_chapter_concurrent_miss_shares_one_youversion_call(gen2_passa
 
 @pytest.mark.asyncio
 async def test_get_chapter_youversion_timeout_fails_request():
-    chapter = _unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
+    chapter = unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
     youversion = StubYouVersion(error=YouVersionHttpError(0, "/v1/bibles/1392/passages/GEN.2", message="timeout"))
     service = BibleService(StubBibleRepository(chapter), youversion)
 
@@ -244,7 +148,7 @@ async def test_get_chapter_youversion_timeout_fails_request():
 
 @pytest.mark.asyncio
 async def test_get_chapter_second_read_skips_youversion(gen2_passage):
-    chapter = _unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
+    chapter = unfilled_chapter(book_code="GEN", chapter=2, verses=list(range(1, 26)))
     youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
     service = BibleService(StubBibleRepository(chapter), youversion)
 
@@ -254,3 +158,111 @@ async def test_get_chapter_second_read_skips_youversion(gen2_passage):
     assert first.verses[3].lines is not None
     assert second.verses[3].lines is not None
     assert youversion.calls == [("1392", "GEN.2")]
+
+
+GEN2_VERSES = list(range(1, 26))
+REFILL_GEN2 = RefillChapterCommand(youversion_bible_id="1392", book_code="GEN", chapter=2)
+
+
+@pytest.mark.asyncio
+async def test_refill_chapter_upgrades_a_legacy_chapter_and_keeps_its_addresses(gen2_passage):
+    chapter = legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
+    repo = StubBibleRepository(chapter)
+    service = BibleService(repo, youversion)
+
+    outcome = await service.refill_chapter(REFILL_GEN2)
+    result = await service.get_chapter(book_id=chapter.book_id, chapter=2)
+
+    assert outcome == ChapterRefillOutcome.UPGRADED
+    assert all("continues" in line for verse in result.verses for line in verse.lines)
+    assert (result.book_id, result.bible_version_id) == (chapter.book_id, chapter.bible_version_id)
+    assert [verse.passage_id for verse in result.verses] == [verse.passage_id for verse in chapter.verses]
+    assert len(youversion.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_refill_chapter_twice_fetches_once(gen2_passage):
+    chapter = legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
+    service = BibleService(StubBibleRepository(chapter), youversion)
+
+    outcomes = [await service.refill_chapter(REFILL_GEN2), await service.refill_chapter(REFILL_GEN2)]
+
+    assert outcomes == [ChapterRefillOutcome.UPGRADED, ChapterRefillOutcome.ALREADY_UPGRADED]
+    assert len(youversion.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_refill_chapter_leaves_an_unfilled_chapter_to_read_time_fill(gen2_passage):
+    chapter = unfilled_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
+    repo = StubBibleRepository(chapter)
+
+    outcome = await BibleService(repo, youversion).refill_chapter(REFILL_GEN2)
+
+    assert outcome == ChapterRefillOutcome.UNFILLED
+    assert youversion.calls == []
+    assert repo.write_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "youversion",
+    [
+        StubYouVersion(error=YouVersionHttpError(503, "/v1/bibles/1392/passages/GEN.2")),
+        StubYouVersion(passages={"1392:GEN.2": {"content": ""}}),
+        StubYouVersion(passages={"1392:GEN.2": {"content": "<div><div"}}),
+        StubYouVersion(passages={"1392:GEN.2": {"content": '<div><div class="p"><span class="yv-v" v="1"></span>one</div></div>'}}),
+    ],
+    ids=["http-error", "empty-content", "invalid-html", "verse-set-mismatch"],
+)
+async def test_failed_refill_keeps_the_legacy_chapter_readable(youversion):
+    chapter = legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    repo = StubBibleRepository(chapter)
+    service = BibleService(repo, youversion)
+
+    with pytest.raises(ApiBaseException) as exc_info:
+        await service.refill_chapter(REFILL_GEN2)
+
+    assert exc_info.value.status_code == 502
+    assert repo.write_calls == []
+    assert (await service.get_chapter(book_id=chapter.book_id, chapter=2)).verses == chapter.verses
+
+
+@pytest.mark.asyncio
+async def test_concurrent_refill_and_read_share_one_youversion_call(gen2_passage):
+    chapter = legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage}, delay_sec=0.05)
+    service = BibleService(StubBibleRepository(chapter), youversion)
+
+    _, _, read = await asyncio.gather(
+        service.refill_chapter(REFILL_GEN2), service.refill_chapter(REFILL_GEN2), service.get_chapter(book_id=chapter.book_id, chapter=2)
+    )
+
+    assert len(youversion.calls) == 1
+    assert read.verses == chapter.verses
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "command",
+    [
+        RefillChapterCommand(youversion_bible_id="9999", book_code="GEN", chapter=2),
+        RefillChapterCommand(youversion_bible_id="1392", book_code="XXX", chapter=2),
+    ],
+    ids=["version", "book"],
+)
+async def test_refill_chapter_rejects_an_unknown_address(command):
+    service = BibleService(StubBibleRepository(legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)), StubYouVersion())
+
+    with pytest.raises(NotFoundException):
+        await service.refill_chapter(command)
+
+
+@pytest.mark.asyncio
+async def test_refill_chapter_rejects_a_chapter_without_verses():
+    service = BibleService(StubBibleRepository(legacy_chapter(book_code="GEN", chapter=2, verses=[])), StubYouVersion())
+
+    with pytest.raises(NotFoundException):
+        await service.refill_chapter(REFILL_GEN2)

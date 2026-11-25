@@ -6,7 +6,7 @@ from typing import Any, NamedTuple
 from uuid import UUID
 
 from portal.application.bible.chapter_fill_gate import ChapterFillGate
-from portal.application.bible.commands import ListVersionsQuery, ReadPassageQuery, SearchVersesCommand
+from portal.application.bible.commands import ListLegacyChaptersQuery, ListVersionsQuery, ReadPassageQuery, RefillChapterCommand, SearchVersesCommand
 from portal.application.bible.parse_chapter_html import ChapterHtmlParseError, parse_chapter_html
 from portal.application.bible.results import (
     BibleBookListResult,
@@ -15,9 +15,10 @@ from portal.application.bible.results import (
     BiblePassageResult,
     BibleSearchPageResult,
     BibleVersionListResult,
+    ChapterRefillOutcome,
 )
-from portal.domain.bible.constants import BibleErrorCode
-from portal.domain.bible.entities import BibleChapter, BibleVerse
+from portal.domain.bible.constants import CONTINUES_KEY, BibleErrorCode
+from portal.domain.bible.entities import BibleChapter, BibleChapterAddress, BibleVerse
 from portal.domain.bible.ports import BibleRepositoryPort, YouVersionPort
 from portal.exceptions.responses import ApiBaseException, NotFoundException
 from portal.libs.tracing.distributed_trace import distributed_trace
@@ -54,12 +55,29 @@ class BibleService:
         if row is None:
             raise NotFoundException(detail=f"Book {book_id} not found or version is inactive")
         if _chapter_needs_fill(row):
-            fills = await self._fetch_chapter_fills(row)
-            await self._repository.write_chapter_fill(book_id=row.book_id, chapter=row.chapter, fills=fills)
-            row = await self._repository.fetch_chapter(book_id=book_id, chapter=chapter)
-            if row is None or _chapter_needs_fill(row):
-                raise ApiBaseException(status_code=502, detail="Failed to fill Scripture chapter")
+            row = await self._fill_chapter(row)
         return row
+
+    @distributed_trace()
+    async def list_legacy_chapters(self, query: ListLegacyChaptersQuery) -> list[BibleChapterAddress]:
+        version_id = await self._require_active_version_id(query.youversion_bible_id)
+        return await self._repository.list_legacy_chapters(version_id, query.book_code)
+
+    @distributed_trace()
+    async def refill_chapter(self, command: RefillChapterCommand) -> ChapterRefillOutcome:
+        """Replace a legacy chapter's bodies. Nothing is cleared first, so a failed fetch leaves the old bodies readable."""
+        version_id = await self._require_active_version_id(command.youversion_bible_id)
+        book_id = await self._repository.find_book_id(version_id, command.book_code)
+        row = await self._repository.fetch_chapter(book_id=book_id, chapter=command.chapter) if book_id is not None else None
+        if row is None or not row.verses:
+            raise NotFoundException(detail=f"Chapter {command.book_code}.{command.chapter} not found in Bible version {command.youversion_bible_id}")
+        if all(verse.lines is None for verse in row.verses):
+            return ChapterRefillOutcome.UNFILLED
+        if _chapter_has_paragraph_boundaries(row):
+            return ChapterRefillOutcome.ALREADY_UPGRADED
+
+        await self._fill_chapter(row)
+        return ChapterRefillOutcome.UPGRADED
 
     @distributed_trace()
     async def read_passage(self, query: ReadPassageQuery) -> BiblePassageResult:
@@ -105,6 +123,20 @@ class BibleService:
             q=command.q, bible_version_id=command.bible_version_id, book_id=command.book_id, limit=command.limit, offset=command.offset
         )
 
+    async def _require_active_version_id(self, youversion_bible_id: str) -> UUID:
+        version_id = await self._repository.find_active_version_id(youversion_bible_id)
+        if version_id is None:
+            raise NotFoundException(detail=f"Bible version {youversion_bible_id} not found or inactive", error_code=BibleErrorCode.VERSION_NOT_FOUND)
+        return version_id
+
+    async def _fill_chapter(self, chapter: BibleChapter) -> BibleChapter:
+        fills = await self._fetch_chapter_fills(chapter)
+        await self._repository.write_chapter_fill(book_id=chapter.book_id, chapter=chapter.chapter, fills=fills)
+        filled = await self._repository.fetch_chapter(book_id=chapter.book_id, chapter=chapter.chapter)
+        if filled is None or not _chapter_has_paragraph_boundaries(filled):
+            raise ApiBaseException(status_code=502, detail="Failed to fill Scripture chapter")
+        return filled
+
     async def _fetch_chapter_fills(self, chapter: BibleChapter) -> list[dict[str, Any]]:
         key = (chapter.youversion_bible_id, chapter.book_code, chapter.chapter)
         shell_verses = {verse.verse for verse in chapter.verses}
@@ -139,6 +171,10 @@ class BibleService:
 
 def _chapter_needs_fill(chapter: BibleChapter) -> bool:
     return any(verse.lines is None for verse in chapter.verses)
+
+
+def _chapter_has_paragraph_boundaries(chapter: BibleChapter) -> bool:
+    return all(verse.lines is not None and all(CONTINUES_KEY in line for line in verse.lines) for verse in chapter.verses)
 
 
 class _PassageRef(NamedTuple):

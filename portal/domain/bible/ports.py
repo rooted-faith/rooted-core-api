@@ -5,7 +5,7 @@ Bible repository port.
 from typing import Any, Protocol
 from uuid import UUID
 
-from portal.domain.bible.entities import BibleBook, BibleChapter, BibleSearchPage, BibleVersion
+from portal.domain.bible.entities import BibleBook, BibleChapter, BibleChapterAddress, BibleSearchPage, BibleVersion
 
 
 class BibleRepositoryPort(Protocol):
@@ -20,6 +20,9 @@ class BibleRepositoryPort(Protocol):
     async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
         """Return True when the active catalog contains this licensed YouVersion Bible ID."""
 
+    async def find_active_version_id(self, youversion_bible_id: str) -> UUID | None:
+        """Resolve an active Bible version from its public YouVersion Bible id."""
+
     async def fetch_books(self, bible_version_id: UUID) -> list[BibleBook]:
         """List books for a version ordered by sequence."""
 
@@ -31,6 +34,9 @@ class BibleRepositoryPort(Protocol):
 
     async def write_chapter_fill(self, book_id: UUID, chapter: int, fills: list[dict[str, Any]]) -> None:
         """Persist parsed verse bodies for one chapter (all-or-nothing)."""
+
+    async def list_legacy_chapters(self, bible_version_id: UUID, book_code: str | None = None) -> list[BibleChapterAddress]:
+        """List chapters holding filled verse bodies without paragraph boundaries, in catalog order."""
 
     async def search_verses(self, q: str, bible_version_id: UUID | None, book_id: UUID | None, limit: int, offset: int) -> BibleSearchPage:
         """Search verse content with optional filters."""

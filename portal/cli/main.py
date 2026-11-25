@@ -4,6 +4,8 @@ CLI main entry point
 
 import click
 
+from portal.domain.bible.entities import BibleChapterAddress
+
 from .bible import dump_bible_process
 from .constants import DEFAULT_BIBLE_DATA_DIR
 from .import_bible import import_bible_data_process
@@ -11,6 +13,7 @@ from .import_daily_devotions import DEFAULT_CSV_PATH, import_daily_devotions_pro
 from .init_all import init_all_process
 from .init_locale import init_locales_process
 from .rbac import init_rbac_process, reset_rbac_process
+from .refill_bible import list_legacy_bible_chapters_process, parse_chapters, refill_bible_chapters_process
 from .seed_identity_providers import seed_identity_providers_process
 from .seed_legal_documents import seed_legal_documents_process
 from .seed_system_settings import seed_system_settings_process
@@ -49,6 +52,25 @@ def import_bible_cmd(bible_id: str, data_dir: str):
     3. Empty Bible verse shells from bible_data/{bible_id}/meta/index.json
     """
     import_bible_data_process(bible_id=bible_id, data_dir=data_dir)
+
+
+@cli.command(name="list-legacy-bible-chapters")
+@click.option("--bible-id", required=True, help="Bible ID (e.g., 1392)")
+@click.option("--book", "book_code", default=None, help="Only this book code (e.g., REV)")
+def list_legacy_bible_chapters_cmd(bible_id: str, book_code: str | None):
+    """List filled chapters that have no paragraph boundaries. Reads the database only."""
+    list_legacy_bible_chapters_process(bible_id=bible_id, book_code=book_code)
+
+
+@cli.command(name="refill-bible-chapters")
+@click.option("--bible-id", required=True, help="Bible ID (e.g., 1392)")
+@click.option("--chapter", "chapters", multiple=True, required=True, callback=parse_chapters, help="Chapter to refill, repeatable (e.g., REV.21)")
+def refill_bible_chapters_cmd(bible_id: str, chapters: list[BibleChapterAddress]):
+    """Refill the named legacy chapters from YouVersion, one request and one transaction per chapter.
+
+    Note: API key is automatically loaded from YVP_APP_KEY environment variable.
+    """
+    refill_bible_chapters_process(bible_id=bible_id, chapters=chapters)
 
 
 @cli.command(name="import-daily-devotions")

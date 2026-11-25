@@ -5,7 +5,10 @@ Bible repository — SQLAlchemy-backed Scripture reads.
 from typing import Any
 from uuid import UUID
 
-from portal.domain.bible.entities import BibleBook, BibleChapter, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
+import sqlalchemy as sa
+
+from portal.domain.bible.constants import CONTINUES_KEY
+from portal.domain.bible.entities import BibleBook, BibleChapter, BibleChapterAddress, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
 from portal.libs.database import Session
 from portal.models import BibleBook as BibleBookModel
 from portal.models import BibleVerse as BibleVerseModel
@@ -48,13 +51,15 @@ class BibleRepository:
         return version_id is not None
 
     async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
-        version_id = await (
+        return await self.find_active_version_id(youversion_bible_id) is not None
+
+    async def find_active_version_id(self, youversion_bible_id: str) -> UUID | None:
+        return await (
             self._session.select(BibleVersionModel.id)
             .where(BibleVersionModel.youversion_bible_id == youversion_bible_id)
             .where(BibleVersionModel.is_active == True)  # noqa: E712
             .fetchval()
         )
-        return version_id is not None
 
     async def fetch_books(self, bible_version_id: UUID) -> list[BibleBook]:
         rows: list[BibleBook] = await (
@@ -132,6 +137,21 @@ class BibleRepository:
                 .where(BibleVerseModel.verse == fill["verse"])
                 .execute()
             )
+
+    async def list_legacy_chapters(self, bible_version_id: UUID, book_code: str | None = None) -> list[BibleChapterAddress]:
+        lacks_boundaries = sa.literal_column(f"""'$[*] ? (!exists(@."{CONTINUES_KEY}"))'::jsonpath""")
+        rows: list[BibleChapterAddress] = await (
+            self._session.select(BibleBookModel.book_code, BibleVerseModel.chapter)
+            .join(BibleBookModel, BibleVerseModel.book_id == BibleBookModel.id)
+            .where(BibleBookModel.bible_version_id == bible_version_id)
+            .where(book_code is not None, lambda: BibleBookModel.book_code == book_code)
+            .where(sa.func.jsonb_typeof(BibleVerseModel.lines) == "array")
+            .where(sa.func.jsonb_path_exists(BibleVerseModel.lines, lacks_boundaries))
+            .group_by(BibleBookModel.book_code, BibleBookModel.sequence, BibleVerseModel.chapter)
+            .order_by(BibleBookModel.sequence, BibleVerseModel.chapter)
+            .fetch(as_model=BibleChapterAddress)
+        )
+        return rows or []
 
     async def search_verses(self, q: str, bible_version_id: UUID | None, book_id: UUID | None, limit: int, offset: int) -> BibleSearchPage:
         return BibleSearchPage(results=[], total=0, limit=limit, offset=offset)
