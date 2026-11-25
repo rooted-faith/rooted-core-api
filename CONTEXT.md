@@ -59,6 +59,10 @@ _Avoid_: Passage (that is the served text plus its address), storing verse bodie
 Addressable Scripture text (book, chapter, verse range) for a version — served to reader and devotion surfaces. The Devotion row holds only the address (`passage_start` / `passage_end`); the text comes from the reader's **Bible version** when they actually read. A filled verse is an ordered list of lines (heading, paragraph, poetry line); a paragraph may split into inline fragments. Searchable Scripture for that verse is the concatenated body without **Heading** or **Footnote**.
 _Avoid_: duplicating passage blobs inside every lesson row when normalized design exists, sending YouVersion HTML to the App, indexing footnotes or headings as if they were verse text
 
+**Paragraph boundary**:
+Where the publisher starts a new block (paragraph, poetry line, or **Heading**) in a **Bible version**. Recorded on each line of a filled verse; independent of verse numbers, so a paragraph may span verses and a verse may span paragraphs. Chapters filled before boundaries were recorded are **legacy** until refilled.
+_Avoid_: inferring it from punctuation, verse rows, or a change of **Scripture style**
+
 **Heading**:
 Publisher section title inside a **Bible version** (a **Scripture style** such as `s1` / `ms` / `cl`). May sit before a verse or in the middle of that verse's body. It is not Scripture text and not a **Passage** address.
 _Avoid_: treating it as the verse's only title field, assuming it always precedes the next verse number

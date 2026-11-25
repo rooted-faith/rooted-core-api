@@ -2,6 +2,8 @@
 Bible application results — aliases of domain read models.
 """
 
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
 
 from portal.domain.bible.entities import BibleBook, BibleChapter, BiblePassage, BibleSearchHit, BibleSearchPage, BibleVerse, BibleVersion
@@ -24,7 +26,14 @@ class BibleBookListResult(BaseModel):
     new_testament: list[BibleBookResult] = Field(default_factory=list)
 
 
+class ChapterRefillOutcome(StrEnum):
+    UPGRADED = "upgraded"
+    ALREADY_UPGRADED = "already_upgraded"
+    UNFILLED = "unfilled"
+
+
 __all__ = [
+    "ChapterRefillOutcome",
     "BibleVersionResult",
     "BibleVersionListResult",
     "BibleBookResult",

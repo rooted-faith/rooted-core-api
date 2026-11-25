@@ -53,7 +53,10 @@ class BibleVerse(BaseModel):
     passage_id: str = Field(..., serialization_alias="passageId")
     verse: int = Field(...)
     verse_end: int | None = Field(default=None, serialization_alias="verseEnd")
-    lines: list[dict[str, Any]] | None = Field(default=None)
+    lines: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Ordered lines. `continues` is false on the first line of a publisher block, true when it continues the previous line, and absent on legacy content.",
+    )
 
 
 class BibleChapterDetail(BaseModel):

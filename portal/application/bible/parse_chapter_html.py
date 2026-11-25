@@ -4,11 +4,16 @@ Parse YouVersion chapter HTML into structured verse fills.
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from portal.domain.bible.constants import CONTINUES_KEY
+
 KNOWN_FRAGMENT_TYPES = frozenset({"nd", "wj", "pn"})
 YV_CLASSES = frozenset({"yv-h", "yv-v", "yv-vlbl", "yv-n", "yv-clbl"})
+# HTML whitespace only: NBSP and ideographic spaces are publisher content.
+_HTML_WHITESPACE = re.compile(r"[ \t\r\n\f]+")
 
 
 class ChapterHtmlParseError(ValueError):
@@ -26,6 +31,7 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
     current_verse: int | None = None
     pending_headings: list[dict[str, Any]] = []
     footnote_seq = 0
+    block_started = False
 
     def ensure_verse(verse: int, verse_end: int | None = None) -> dict[str, Any]:
         nonlocal pending_headings
@@ -33,41 +39,42 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
         if fill is None:
             fill = {"verse": verse, "verse_end": verse_end, "lines": [], "search_text": ""}
             fills[verse] = fill
-            if pending_headings:
-                fill["lines"].extend(pending_headings)
-                pending_headings = []
         elif verse_end is not None:
             fill["verse_end"] = verse_end
+        if pending_headings:
+            fill["lines"].extend(pending_headings)
+            pending_headings = []
         return fill
 
-    def append_line(verse: int | None, line: dict[str, Any]) -> None:
-        nonlocal pending_headings
-        if verse is None:
-            if line["type"] == "heading":
-                pending_headings.append(line)
+    def append_line(style: str, fragments: list[dict[str, Any]]) -> None:
+        nonlocal block_started
+        fragments = _collapse_fragment_whitespace(fragments)
+        if current_verse is None or not (_has_visible_text(fragments) or _footnotes(fragments)):
             return
-        fill = ensure_verse(verse)
-        fill["lines"].append(line)
-
-    def append_fragments(verse: int | None, style: str, fragments: list[dict[str, Any]]) -> None:
-        if not fragments:
-            return
-        append_line(verse, {"type": "line", "style": style, "fragments": fragments})
+        ensure_verse(current_verse)["lines"].append({"type": "line", "style": style, CONTINUES_KEY: block_started, "fragments": fragments})
+        block_started = True
 
     for block in list(root):
         classes = _classes(block)
         style = _publisher_style(classes)
         if "yv-h" in classes:
-            text = "".join(block.itertext()).strip()
+            text = _collapse_whitespace("".join(block.itertext())).strip(" ")
             fragments = [{"type": "text", "text": text}] if text else []
-            append_line(current_verse, {"type": "heading", "style": style or "s", "fragments": fragments})
+            # A heading belongs to whatever Scripture follows it: the next verse, or the rest of the current one.
+            pending_headings.append({"type": "heading", "style": style or "s", CONTINUES_KEY: False, "fragments": fragments})
             continue
 
-        fragments: list[dict[str, Any]] = []
+        block_started = False
+        marker_seen = False
+        fragments = []
         for event in _iter_block_events(block):
             if event["kind"] == "verse":
-                append_fragments(current_verse, style, fragments)
-                fragments = []
+                if marker_seen or _has_visible_text(fragments):
+                    append_line(style, fragments)
+                    fragments = []
+                else:
+                    fragments = _footnotes(fragments)
+                marker_seen = True
                 current_verse = event["verse"]
                 ensure_verse(current_verse, event.get("verse_end"))
                 continue
@@ -79,15 +86,18 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
                         fragment["label"] = str(footnote_seq)
                 fragments.append(fragment)
 
-        append_fragments(current_verse, style, fragments)
+        append_line(style, _trim_trailing_whitespace(fragments))
+
+    if pending_headings and current_verse is not None:
+        ensure_verse(current_verse)
 
     if not fills:
         raise ChapterHtmlParseError("chapter HTML produced no verses")
 
     for fill in fills.values():
         fill["search_text"] = _build_search_text(fill["lines"])
-        if not fill["lines"]:
-            raise ChapterHtmlParseError(f"verse {fill['verse']} has no lines")
+        if all(line["type"] == "heading" for line in fill["lines"]):
+            raise ChapterHtmlParseError(f"verse {fill['verse']} has no Scripture lines")
 
     return [fills[verse] for verse in sorted(fills)]
 
@@ -105,11 +115,7 @@ def _publisher_style(classes: set[str]) -> str:
 
 def _iter_block_events(block: ET.Element):
     if block.text:
-        text = block.text
-        if text.strip() or text:
-            stripped = text.strip()
-            if stripped:
-                yield {"kind": "fragment", "fragment": {"type": "text", "text": stripped}}
+        yield _text_event(block.text)
 
     for child in list(block):
         classes = _classes(child)
@@ -125,22 +131,60 @@ def _iter_block_events(block: ET.Element):
             yield {"kind": "fragment", "fragment": _parse_footnote(child, classes)}
         elif classes & KNOWN_FRAGMENT_TYPES:
             fragment_type = next(item for item in sorted(classes) if item in KNOWN_FRAGMENT_TYPES)
-            text = "".join(child.itertext()).strip()
-            if text:
-                yield {"kind": "fragment", "fragment": {"type": fragment_type, "text": text}}
+            yield _text_event("".join(child.itertext()), fragment_type)
         else:
-            text = "".join(child.itertext()).strip()
-            if text:
-                style = _publisher_style(classes)
-                fragment: dict[str, Any] = {"type": "text", "text": text}
-                if style and style != "p":
-                    fragment["style"] = style
-                yield {"kind": "fragment", "fragment": fragment}
+            event = _text_event("".join(child.itertext()))
+            style = _publisher_style(classes)
+            if style and style != "p":
+                event["fragment"]["style"] = style
+            yield event
 
         if child.tail:
-            stripped = child.tail.strip()
-            if stripped:
-                yield {"kind": "fragment", "fragment": {"type": "text", "text": stripped}}
+            yield _text_event(child.tail)
+
+
+def _text_event(text: str, fragment_type: str = "text") -> dict[str, Any]:
+    return {"kind": "fragment", "fragment": {"type": fragment_type, "text": text}}
+
+
+def _collapse_whitespace(text: str) -> str:
+    return _HTML_WHITESPACE.sub(" ", text)
+
+
+def _collapse_fragment_whitespace(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse whitespace as HTML does across inline fragments, dropping the line's leading space but keeping word separators."""
+    kept: list[dict[str, Any]] = []
+    ends_with_space = True
+    for fragment in fragments:
+        if fragment["type"] == "footnote":
+            kept.append(fragment)
+            continue
+        text = _collapse_whitespace(fragment["text"])
+        if ends_with_space:
+            text = text.removeprefix(" ")
+        if text:
+            kept.append({**fragment, "text": text})
+            ends_with_space = text.endswith(" ")
+    return kept
+
+
+def _has_visible_text(fragments: list[dict[str, Any]]) -> bool:
+    return any(fragment["text"].strip() for fragment in fragments if fragment["type"] != "footnote")
+
+
+def _footnotes(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [fragment for fragment in fragments if fragment["type"] == "footnote"]
+
+
+def _trim_trailing_whitespace(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    trimmed = list(fragments)
+    while trimmed and trimmed[-1]["type"] != "footnote":
+        text = _collapse_whitespace(trimmed[-1]["text"]).removesuffix(" ")
+        if text:
+            trimmed[-1] = {**trimmed[-1], "text": text}
+            break
+        trimmed.pop()
+    return trimmed
 
 
 def _parse_footnote(element: ET.Element, classes: set[str]) -> dict[str, Any]:
@@ -169,21 +213,19 @@ def _parse_footnote(element: ET.Element, classes: set[str]) -> dict[str, Any]:
                     refs.append({"usfm": ref_el.get("usfm") or "", "text": "".join(ref_el.itertext()).strip()})
             # Build note text from this node, excluding nested ref element text duplication preference:
             # keep full visible text including refs' display text.
-            text_parts.append("".join(child.itertext()).strip())
+            text_parts.append("".join(child.itertext()) + (child.tail or ""))
             continue
         if "ref" in child_classes:
             refs.append({"usfm": child.get("usfm") or "", "text": "".join(child.itertext()).strip()})
 
-    return {"type": "footnote", "kind": kind, "label": label, "text": "".join(text_parts).strip(), "refs": refs}
+    return {"type": "footnote", "kind": kind, "label": label, "text": _collapse_whitespace("".join(text_parts)).strip(" "), "refs": refs}
 
 
 def _build_search_text(lines: list[dict[str, Any]]) -> str:
-    parts: list[str] = []
+    texts = []
     for line in lines:
         if line.get("type") == "heading":
             continue
-        for fragment in line.get("fragments") or []:
-            fragment_type = fragment.get("type")
-            if fragment_type in {"text", "nd", "wj", "pn"}:
-                parts.append(fragment.get("text") or "")
-    return "".join(parts)
+        fragments = line.get("fragments") or []
+        texts.append("".join(fragment.get("text") or "" for fragment in fragments if fragment.get("type") in {"text", *KNOWN_FRAGMENT_TYPES}))
+    return _collapse_whitespace(" ".join(texts)).strip(" ")
