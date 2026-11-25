@@ -162,6 +162,7 @@ async def test_get_chapter_second_read_skips_youversion(gen2_passage):
 
 GEN2_VERSES = list(range(1, 26))
 REFILL_GEN2 = RefillChapterCommand(youversion_bible_id="1392", book_code="GEN", chapter=2)
+FORCE_REFILL_GEN2 = RefillChapterCommand(youversion_bible_id="1392", book_code="GEN", chapter=2, force=True)
 
 
 @pytest.mark.asyncio
@@ -266,3 +267,29 @@ async def test_refill_chapter_rejects_a_chapter_without_verses():
 
     with pytest.raises(NotFoundException):
         await service.refill_chapter(REFILL_GEN2)
+
+
+@pytest.mark.asyncio
+async def test_forced_refill_replaces_an_upgraded_chapter_with_one_fetch(gen2_passage):
+    chapter = legacy_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES)
+    repo = StubBibleRepository(chapter)
+    await BibleService(repo, StubYouVersion(passages={"1392:GEN.2": gen2_passage})).refill_chapter(REFILL_GEN2)
+    revised = {"content": gen2_passage["content"].replace("伊甸", "修訂", 1)}
+    youversion = StubYouVersion(passages={"1392:GEN.2": revised})
+    service = BibleService(repo, youversion)
+
+    outcome = await service.refill_chapter(FORCE_REFILL_GEN2)
+
+    result = await service.get_chapter(book_id=chapter.book_id, chapter=2)
+    assert outcome == ChapterRefillOutcome.UPGRADED
+    assert any(fragment["text"] == "修訂" for verse in result.verses for line in verse.lines for fragment in line["fragments"])
+    assert len(youversion.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_forced_refill_leaves_an_unfilled_chapter_to_read_time_fill(gen2_passage):
+    youversion = StubYouVersion(passages={"1392:GEN.2": gen2_passage})
+    repo = StubBibleRepository(unfilled_chapter(book_code="GEN", chapter=2, verses=GEN2_VERSES))
+
+    assert await BibleService(repo, youversion).refill_chapter(FORCE_REFILL_GEN2) == ChapterRefillOutcome.UNFILLED
+    assert youversion.calls == []

@@ -29,6 +29,7 @@ class RefillChapterCommand(BaseModel):
     youversion_bible_id: str = Field(...)
     book_code: str = Field(...)
     chapter: int = Field(..., ge=1)
+    force: bool = Field(default=False, description="Refetch even when the chapter already has paragraph boundaries")
 
 
 class ListLegacyChaptersQuery(BaseModel):

@@ -39,12 +39,18 @@ Rules for clients:
 - A chapter is filled in one write, so its lines either all carry the key or all lack it. A Passage spanning chapters can mix the two.
 - A Passage can begin in the middle of a paragraph. Its first line is then `true`; start a block anyway.
 - For legacy lines, keep the verse-by-verse layout.
-- Clients that ignore the key keep working. `type`, `style`, `fragments`, `verse`, and `verseEnd` are unchanged.
+- Clients that ignore the key keep working. The key does not change `type`, `style`, `fragments`, `verse`, or `verseEnd`.
 
 Filled together with the key:
 
 - **Headings** come before the Scripture they introduce. A Heading between verses 8 and 9 is in verse 9. A Heading in the middle of a verse stays between that verse's lines.
 - **Word separation** is kept in fragment text. Concatenate fragments as they are, without adding or trimming spaces. A line that continues into another verse may end with a space. Legacy English text lost these spaces.
+
+Filled later than the key (ROO-87), so `continues` does not imply them. Chapters filled before then lack superscriptions and have Footnote text joined into the Heading until a forced refill:
+
+- **Psalm superscriptions** are Headings. Any block before the chapter's first verse marker becomes a Heading line of the first verse, in publisher order, with its Scripture style (`d`) and inline fragments. The same style on or after a verse marker stays a Scripture line.
+- **Footnotes in a Heading** are `footnote` fragments of the Heading line, in the same shape as in Scripture lines. They are not part of the Heading's text, so skip them when you join a Heading's fragments. Neither is in `search_text`.
+- **Generated Footnote labels** number a chapter's Footnotes in document order, Heading Footnotes included. A refill can shift the labels of later Footnotes that have no publisher label.
 
 ## Upgrade old chapters
 
@@ -64,13 +70,19 @@ Filled bodies are never fetched again on read, so a legacy chapter stays legacy 
 
 3. List again. Refilled chapters are gone from the list.
 
+To give an upgraded chapter a later parser fix, such as Psalm superscriptions and Heading Footnotes (ROO-87), name it with `--force`. Such chapters are not in the legacy list; choose them yourself.
+
+```bash
+uv run python -m portal.cli.main refill-bible-chapters --bible-id 1392 --chapter PSA.3 --force
+```
+
 There is no option for a whole book or version. Each named chapter costs one YouVersion request.
 
 | Result | Meaning |
 | --- | --- |
 | `upgraded` | Old bodies replaced, committed |
-| `already_upgraded` | Nothing fetched or written. Repeating the command is safe |
-| `unfilled` | No stored bodies. The next read fills it with boundaries |
+| `already_upgraded` | Nothing fetched or written. Repeating the command is safe. Never reported with `--force`, which fetches and replaces each time |
+| `unfilled` | No stored bodies, also with `--force`. The next read fills it with boundaries |
 | `failed (...)` | Rolled back. The old bodies are still served. The command exits with 1 after trying the other chapters |
 
 A refill fetches and validates before it writes, and each chapter is one transaction. Readers see the old chapter or the new one. Only `lines`, `search_text`, and `verse_end` change; book ids, verse rows, and Passage addresses stay, so bookmarks and Daily lessons are unaffected.

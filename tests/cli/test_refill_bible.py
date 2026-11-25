@@ -61,6 +61,7 @@ class StubSession:
 
 
 GEN2 = {"1392:GEN.2": load_passage("gen2")}
+REVISED_GEN2 = {"content": load_passage("gen2")["content"].replace("伊甸", "修訂", 1)}
 
 
 @pytest.fixture
@@ -88,6 +89,10 @@ def _upgraded(repository: CliRepository, chapter: int) -> bool:
     return all("continues" in line for verse in repository.committed[chapter].verses for line in verse.lines)
 
 
+def _stored_text(repository: CliRepository, chapter: int) -> str:
+    return "".join(fragment["text"] for verse in repository.committed[chapter].verses for line in verse.lines for fragment in line["fragments"])
+
+
 def test_refill_upgrades_only_the_selected_chapter(run, repository):
     result = run("refill-bible-chapters", "--bible-id", "1392", "--chapter", "GEN.2")
 
@@ -106,6 +111,47 @@ def test_refill_is_safe_to_repeat(run):
     assert result.exit_code == 0
     assert "GEN.2: already_upgraded" in result.output
     assert youversion.calls == []
+
+
+def test_force_refetches_an_upgraded_chapter_once(run, repository):
+    run("refill-bible-chapters", "--bible-id", "1392", "--chapter", "GEN.2")
+    youversion = StubYouVersion(passages={"1392:GEN.2": REVISED_GEN2})
+
+    result = run("refill-bible-chapters", "--bible-id", "1392", "--chapter", "GEN.2", "--force", youversion=youversion)
+
+    assert result.exit_code == 0, result.output
+    assert "GEN.2: upgraded" in result.output
+    assert youversion.calls == [("1392", "GEN.2")]
+    assert "修訂" in _stored_text(repository, 2)
+
+
+@pytest.mark.parametrize(
+    ("youversion", "fail_after_write"),
+    [
+        (StubYouVersion(error=YouVersionHttpError(503, "/passages/GEN.2")), False),
+        (StubYouVersion(passages={"1392:GEN.2": {"content": "<div><div"}}), False),
+        (StubYouVersion(passages={"1392:GEN.2": REVISED_GEN2}), True),
+    ],
+    ids=["fetch", "parse", "write"],
+)
+def test_failed_forced_refill_keeps_the_stored_body(run, repository, youversion, fail_after_write):
+    run("refill-bible-chapters", "--bible-id", "1392", "--chapter", "GEN.2")
+    stored = repository.committed[2].verses
+    repository.fail_after_write = fail_after_write
+
+    result = run("refill-bible-chapters", "--bible-id", "1392", "--chapter", "GEN.2", "--force", youversion=youversion)
+
+    assert result.exit_code == 1
+    assert "GEN.2: failed" in result.output
+    assert repository.pending == {}
+    assert repository.committed[2].verses == stored
+
+
+def test_force_still_requires_an_explicit_chapter(run):
+    result = run("refill-bible-chapters", "--bible-id", "1392", "--force")
+
+    assert result.exit_code == 2
+    assert "--chapter" in result.output
 
 
 def test_one_failed_chapter_keeps_its_old_body_and_does_not_undo_the_others(run, repository):
