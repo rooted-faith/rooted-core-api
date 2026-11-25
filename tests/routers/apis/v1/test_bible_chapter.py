@@ -1,5 +1,5 @@
 """
-Publisher paragraph boundaries in the chapter response (issue #128).
+Publisher paragraph boundaries and Headings in the chapter response (issues #128, #130).
 
 Seam: the serialized chapter response over the real BibleService chapter fill,
 with controlled repository and YouVersion dependencies.
@@ -227,3 +227,111 @@ async def test_verse_holding_only_a_heading_fails_the_fill():
         await _read(_service(chapter, content), chapter)
 
     assert exc_info.value.status_code == 502
+
+
+PSALM_3 = (
+    '<div><div class="cl yv-h">Psalm 3<span class="yv-n f"><span class="ft">In Hebrew texts 3:1-8 is numbered 3:2-9.</span></span></div>'
+    '<div class="d">A psalm of David. When he fled from his son Absalom.</div>'
+    '<div class="q1"><span class="yv-v" v="1"></span><span class="yv-vlbl">1</span><span class="sc">Lord</span>, how many are my foes!</div></div>'
+)
+
+
+@pytest.mark.asyncio
+async def test_footnote_in_a_heading_is_not_part_of_the_heading_text():
+    payload = await _read_html(PSALM_3, verses=[1])
+
+    heading = _lines(payload, 1)[0]
+    assert (heading["type"], heading["style"], heading["continues"]) == ("heading", "cl", False)
+    assert heading["fragments"] == [
+        {"type": "text", "text": "Psalm 3"},
+        {"type": "footnote", "kind": "f", "label": "1", "text": "In Hebrew texts 3:1-8 is numbered 3:2-9.", "refs": []},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_psalm_superscription_is_a_heading_before_the_first_verse():
+    chapter = unfilled_chapter(book_code="PSA", chapter=3, verses=[1])
+    repository = StubBibleRepository(chapter)
+
+    payload = await _read(BibleService(repository, StubYouVersion(passages={"1392:PSA.3": {"content": PSALM_3}})), chapter)
+
+    assert [(line["type"], line["style"], line["continues"], _text(line)) for line in _lines(payload, 1)] == [
+        ("heading", "cl", False, "Psalm 3"),
+        ("heading", "d", False, "A psalm of David. When he fled from his son Absalom."),
+        ("line", "q1", False, "Lord, how many are my foes!"),
+    ]
+    assert [line["fragments"] for line in _lines(payload, 1)[1:]] == [
+        [{"type": "text", "text": "A psalm of David. When he fled from his son Absalom."}],
+        [{"type": "text", "text": "Lord", "style": "sc"}, {"type": "text", "text": ", how many are my foes!"}],
+    ]
+    assert repository.write_calls[0][0]["search_text"] == "Lord, how many are my foes!"
+
+
+@pytest.mark.asyncio
+async def test_superscription_keeps_its_inline_styles_and_footnote():
+    payload = await _read_html(
+        '<div><div class="d">For the <span class="nd">Lord</span><span class="yv-n f"><span class="fr">3:1 </span>'
+        '<span class="ft">Or for God</span></span>, a psalm.</div><div class="q1"><span class="yv-v" v="1"></span>one</div></div>',
+        verses=[1],
+    )
+
+    assert _lines(payload, 1)[0]["fragments"] == [
+        {"type": "text", "text": "For the "},
+        {"type": "nd", "text": "Lord"},
+        {"type": "footnote", "kind": "f", "label": "3:1", "text": "Or for God", "refs": []},
+        {"type": "text", "text": ", a psalm."},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_superscription_is_decided_by_position_and_keeps_publisher_order():
+    payload = await _read_html(
+        '<div><div class="s1 yv-h">one</div><div class="iex">two</div><div class="b"></div><div class="r yv-h">three</div>'
+        '<div class="d">four</div><div class="q1"><span class="yv-v" v="1"></span>body</div></div>',
+        verses=[1],
+    )
+
+    assert [(line["type"], line["style"], _text(line)) for line in _lines(payload, 1)] == [
+        ("heading", "s1", "one"),
+        ("heading", "iex", "two"),
+        ("heading", "r", "three"),
+        ("heading", "d", "four"),
+        ("line", "q1", "body"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_d_block_that_holds_a_verse_or_follows_scripture_is_scripture():
+    payload = await _read_html(
+        '<div><div class="d"><span class="yv-v" v="1"></span>A prayer of Habakkuk.</div><div class="q1"><span class="yv-v" v="2"></span>body</div>'
+        '<div class="d">For the director of music.</div></div>',
+        verses=[1, 2],
+    )
+
+    assert [(line["type"], line["style"], line["continues"]) for line in _lines(payload, 1)] == [("line", "d", False)]
+    assert [(line["type"], line["style"], _text(line)) for line in _lines(payload, 2)] == [("line", "q1", "body"), ("line", "d", "For the director of music.")]
+
+
+@pytest.mark.asyncio
+async def test_heading_whitespace_is_collapsed_around_its_footnote():
+    payload = await _read_html(
+        '<div>\n  <div class="s1 yv-h">\n    The <span class="nd">Lord</span><span class="yv-n f">\n      <span class="ft">note</span>\n    </span>\n'
+        '    reigns\n  </div>\n  <div class="p"><span class="yv-v" v="1"></span>one</div></div>',
+        verses=[1],
+    )
+
+    fragments = _lines(payload, 1)[0]["fragments"]
+    assert [(fragment["type"], fragment["text"]) for fragment in fragments] == [("text", "The Lord"), ("footnote", "note"), ("text", " reigns")]
+
+
+@pytest.mark.asyncio
+async def test_generated_footnote_labels_follow_document_order_across_headings_and_scripture():
+    note = '<span class="yv-n f"><span class="ft">note</span></span>'
+    payload = await _read_html(
+        f'<div><div class="p"><span class="yv-v" v="1"></span>one{note}</div><div class="s1 yv-h">title{note}</div>'
+        f'<div class="p"><span class="yv-v" v="2"></span>two{note}</div></div>',
+        verses=[1, 2],
+    )
+
+    footnotes = [fragment for verse in payload["verses"] for line in verse["lines"] for fragment in line["fragments"] if fragment["type"] == "footnote"]
+    assert [footnote["label"] for footnote in footnotes] == ["1", "2", "3"]

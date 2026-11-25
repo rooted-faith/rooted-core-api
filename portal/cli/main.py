@@ -65,12 +65,13 @@ def list_legacy_bible_chapters_cmd(bible_id: str, book_code: str | None):
 @cli.command(name="refill-bible-chapters")
 @click.option("--bible-id", required=True, help="Bible ID (e.g., 1392)")
 @click.option("--chapter", "chapters", multiple=True, required=True, callback=parse_chapters, help="Chapter to refill, repeatable (e.g., REV.21)")
-def refill_bible_chapters_cmd(bible_id: str, chapters: list[BibleChapterAddress]):
-    """Refill the named legacy chapters from YouVersion, one request and one transaction per chapter.
+@click.option("--force", is_flag=True, help="Refetch the named chapters even when they are already upgraded")
+def refill_bible_chapters_cmd(bible_id: str, chapters: list[BibleChapterAddress], force: bool):
+    """Refill the named filled chapters from YouVersion, one request and one transaction per chapter.
 
     Note: API key is automatically loaded from YVP_APP_KEY environment variable.
     """
-    refill_bible_chapters_process(bible_id=bible_id, chapters=chapters)
+    refill_bible_chapters_process(bible_id=bible_id, chapters=chapters, force=force)
 
 
 @cli.command(name="import-daily-devotions")

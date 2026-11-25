@@ -59,7 +59,7 @@ uv run python -m portal.cli.main dump-bible --bible-id 1392 --out dump
 
 # Upgrade chapters filled without paragraph boundaries (content ops; docs/operations/bible-paragraph-boundaries.md)
 uv run python -m portal.cli.main list-legacy-bible-chapters --bible-id 1392 [--book REV]
-uv run python -m portal.cli.main refill-bible-chapters --bible-id 1392 --chapter REV.21
+uv run python -m portal.cli.main refill-bible-chapters --bible-id 1392 --chapter REV.21 [--force]
 
 # Daily devotion CSV import (content ops; --dry-run first, --replace-schedule to replace conflicts)
 uv run python -m portal.cli.main import-daily-devotions --dry-run [--csv-path PATH] [--start-date YYYY-MM-DD] [--replace-schedule]

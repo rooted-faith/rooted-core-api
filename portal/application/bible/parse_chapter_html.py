@@ -46,6 +46,12 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
             pending_headings = []
         return fill
 
+    def number_footnote(fragment: dict[str, Any]) -> None:
+        nonlocal footnote_seq
+        footnote_seq += 1
+        if not fragment["label"]:
+            fragment["label"] = str(footnote_seq)
+
     def append_line(style: str, fragments: list[dict[str, Any]]) -> None:
         nonlocal block_started
         fragments = _collapse_fragment_whitespace(fragments)
@@ -54,12 +60,19 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
         ensure_verse(current_verse)["lines"].append({"type": "line", "style": style, CONTINUES_KEY: block_started, "fragments": fragments})
         block_started = True
 
+    def append_unversed_block(style: str, fragments: list[dict[str, Any]]) -> None:
+        """A block before the first verse marker has no verse of its own, so it waits for one as a heading does."""
+        fragments = _collapse_fragment_whitespace(fragments)
+        if _has_visible_text(fragments) or _footnotes(fragments):
+            pending_headings.append({"type": "heading", "style": style, CONTINUES_KEY: False, "fragments": fragments})
+
     for block in list(root):
         classes = _classes(block)
         style = _publisher_style(classes)
         if "yv-h" in classes:
-            text = _collapse_whitespace("".join(block.itertext())).strip(" ")
-            fragments = [{"type": "text", "text": text}] if text else []
+            fragments = _collapse_fragment_whitespace(_trim_trailing_whitespace(_heading_fragments(block)))
+            for footnote in _footnotes(fragments):
+                number_footnote(footnote)
             # A heading belongs to whatever Scripture follows it: the next verse, or the rest of the current one.
             pending_headings.append({"type": "heading", "style": style or "s", CONTINUES_KEY: False, "fragments": fragments})
             continue
@@ -81,12 +94,14 @@ def parse_chapter_html(content: str) -> list[dict[str, Any]]:
             if event["kind"] == "fragment":
                 fragment = event["fragment"]
                 if fragment["type"] == "footnote":
-                    footnote_seq += 1
-                    if not fragment.get("label"):
-                        fragment["label"] = str(footnote_seq)
+                    number_footnote(fragment)
                 fragments.append(fragment)
 
-        append_line(style, _trim_trailing_whitespace(fragments))
+        fragments = _trim_trailing_whitespace(fragments)
+        if current_verse is None:
+            append_unversed_block(style, fragments)
+        else:
+            append_line(style, fragments)
 
     if pending_headings and current_verse is not None:
         ensure_verse(current_verse)
@@ -141,6 +156,21 @@ def _iter_block_events(block: ET.Element):
 
         if child.tail:
             yield _text_event(child.tail)
+
+
+def _heading_fragments(block: ET.Element) -> list[dict[str, Any]]:
+    """Plain text with inline styles flattened, broken only where a Footnote sits."""
+    fragments: list[dict[str, Any]] = []
+    text = block.text or ""
+    for child in list(block):
+        classes = _classes(child)
+        if "yv-n" in classes:
+            fragments += [{"type": "text", "text": text}, _parse_footnote(child, classes)]
+            text = ""
+        else:
+            text += "".join(child.itertext())
+        text += child.tail or ""
+    return [*fragments, {"type": "text", "text": text}]
 
 
 def _text_event(text: str, fragment_type: str = "text") -> dict[str, Any]:

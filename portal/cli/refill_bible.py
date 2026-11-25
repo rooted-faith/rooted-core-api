@@ -1,5 +1,5 @@
 """
-List and refill Bible chapters that were filled before paragraph boundaries were stored.
+List Bible chapters filled before paragraph boundaries were stored, and refill named chapters.
 """
 
 import asyncio
@@ -57,14 +57,15 @@ async def list_legacy_bible_chapters(bible_id: str, book_code: str | None) -> No
             click.echo(_label(address))
 
 
-async def refill_bible_chapters(bible_id: str, chapters: list[BibleChapterAddress]) -> None:
+async def refill_bible_chapters(bible_id: str, chapters: list[BibleChapterAddress], force: bool = False) -> None:
     """Each chapter is its own transaction: a failure keeps that chapter's old body and leaves the others alone."""
     failed: list[str] = []
     async with _bible_service() as (service, session):
         for address in chapters:
             label = _label(address)
             try:
-                outcome = await service.refill_chapter(RefillChapterCommand(youversion_bible_id=bible_id, book_code=address.book_code, chapter=address.chapter))
+                command = RefillChapterCommand(youversion_bible_id=bible_id, book_code=address.book_code, chapter=address.chapter, force=force)
+                outcome = await service.refill_chapter(command)
                 await session.commit()
             except Exception as e:
                 await session.rollback()
@@ -93,6 +94,6 @@ def list_legacy_bible_chapters_process(bible_id: str, book_code: str | None = No
     asyncio.run(list_legacy_bible_chapters(bible_id=bible_id, book_code=book_code))
 
 
-def refill_bible_chapters_process(bible_id: str, chapters: list[BibleChapterAddress]) -> None:
+def refill_bible_chapters_process(bible_id: str, chapters: list[BibleChapterAddress], force: bool = False) -> None:
     """Synchronous entry point for refilling chapters"""
-    asyncio.run(refill_bible_chapters(bible_id=bible_id, chapters=chapters))
+    asyncio.run(refill_bible_chapters(bible_id=bible_id, chapters=chapters, force=force))

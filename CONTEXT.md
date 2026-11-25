@@ -64,11 +64,11 @@ Where the publisher starts a new block (paragraph, poetry line, or **Heading**) 
 _Avoid_: inferring it from punctuation, verse rows, or a change of **Scripture style**
 
 **Heading**:
-Publisher section title inside a **Bible version** (a **Scripture style** such as `s1` / `ms` / `cl`). May sit before a verse or in the middle of that verse's body. It is not Scripture text and not a **Passage** address.
+Publisher section title inside a **Bible version** (a **Scripture style** such as `s1` / `ms` / `cl`). A Psalm superscription (`d`), or any other block before the chapter's first verse, is also a Heading. May sit before a verse or in the middle of that verse's body. It is not Scripture text and not a **Passage** address.
 _Avoid_: treating it as the verse's only title field, assuming it always precedes the next verse number
 
 **Footnote**:
-Publisher annotation attached as an inline fragment inside verse text (YouVersion `yv-n`, usually type `f` or `x`) — explanation, alternate rendering, or cross-reference. Distinct from a **Lesson note**.
+Publisher annotation attached as an inline fragment inside verse text or a **Heading** (YouVersion `yv-n`, usually type `f` or `x`) — explanation, alternate rendering, or cross-reference. Distinct from a **Lesson note**.
 _Avoid_: Note (unqualified), Lesson note, embedding YouVersion HTML in the App
 
 **Scripture style**:

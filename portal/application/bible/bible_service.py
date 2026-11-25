@@ -65,7 +65,7 @@ class BibleService:
 
     @distributed_trace()
     async def refill_chapter(self, command: RefillChapterCommand) -> ChapterRefillOutcome:
-        """Replace a legacy chapter's bodies. Nothing is cleared first, so a failed fetch leaves the old bodies readable."""
+        """Replace a filled chapter's bodies; an upgraded chapter only when forced. Nothing is cleared first, so a failed fetch leaves the old bodies readable."""
         version_id = await self._require_active_version_id(command.youversion_bible_id)
         book_id = await self._repository.find_book_id(version_id, command.book_code)
         row = await self._repository.fetch_chapter(book_id=book_id, chapter=command.chapter) if book_id is not None else None
@@ -73,7 +73,7 @@ class BibleService:
             raise NotFoundException(detail=f"Chapter {command.book_code}.{command.chapter} not found in Bible version {command.youversion_bible_id}")
         if all(verse.lines is None for verse in row.verses):
             return ChapterRefillOutcome.UNFILLED
-        if _chapter_has_paragraph_boundaries(row):
+        if not command.force and _chapter_has_paragraph_boundaries(row):
             return ChapterRefillOutcome.ALREADY_UPGRADED
 
         await self._fill_chapter(row)
