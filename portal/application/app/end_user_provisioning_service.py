@@ -24,7 +24,7 @@ class EndUserProvisioningService:
     credentials may still carry one.
     """
 
-    _DEFAULT_BIBLE_VERSION_ID = "113"
+    _DEFAULT_BIBLE_VERSION_ID = "111"
     _TRADITIONAL_CHINESE_BIBLE_VERSION_ID = "1392"
     _SIMPLIFIED_CHINESE_BIBLE_VERSION_ID = "36"
 

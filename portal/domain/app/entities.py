@@ -28,7 +28,7 @@ class UserPreferences(UUIDBaseModel):
     theme: str = Field(default="system")
     font_scale: str = Field(default="M")
     # YouVersion Bible ID; not a hard FK to bible.versions.
-    bible_version: str = Field(default="113")
+    bible_version: str = Field(default="111")
     stage: Optional[str] = Field(default=None)
     reminder_time: Optional[time] = Field(default=None)
     reminder_enabled: bool = Field(default=False)
