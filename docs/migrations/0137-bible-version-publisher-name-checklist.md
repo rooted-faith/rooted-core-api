@@ -4,7 +4,7 @@ Agents must **not** add, modify, or delete files under `alembic/versions/`. The 
 
 ## Status
 
-**Pending.** The `BibleVersion` ORM model carries `publisher_name`; the database does not yet. Nothing reads or writes the column until #138 (importer + metadata-only backfill) lands.
+**Applied on main** (PR #140 / ROO-100). Application write path and metadata-only backfill: #138 / ROO-101 — see [bible-publisher-names.md](../operations/bible-publisher-names.md).
 
 ## Goal
 
