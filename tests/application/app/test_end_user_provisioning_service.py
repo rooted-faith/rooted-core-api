@@ -66,7 +66,7 @@ class StubPreferencesRepository:
 
 class StubBibleRepository:
     def __init__(self, active_youversion_bible_ids: set[str] | None = None):
-        self.active_youversion_bible_ids = active_youversion_bible_ids or {"113", "1392", "36"}
+        self.active_youversion_bible_ids = active_youversion_bible_ids or {"111", "1392", "36"}
 
     async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
         return youversion_bible_id in self.active_youversion_bible_ids
@@ -176,13 +176,13 @@ async def test_passwordless_provision_creates_credential_without_password_hash()
     assert user_repo.created[0]["verified"] is True
     assert result.end_user_id is not None
     assert prefs_repo.created[0].display_name == "member"
-    assert prefs_repo.created[0].bible_version == "113"
+    assert prefs_repo.created[0].bible_version == "111"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("locale_code", "expected_bible_version"),
-    [("en-US", "113"), ("zh-Hant", "1392"), ("zh-HK", "1392"), ("zh-Hans-CN", "36"), ("zh-CN", "36"), ("ja-JP", "113"), (None, "113")],
+    [("en-US", "111"), ("zh-Hant", "1392"), ("zh-HK", "1392"), ("zh-Hans-CN", "36"), ("zh-CN", "36"), ("ja-JP", "111"), (None, "111")],
 )
 async def test_provision_selects_an_active_bible_version_from_the_request_locale(locale_code: str | None, expected_bible_version: str):
     service, _, _, preferences_repository = _build_service()
@@ -190,6 +190,27 @@ async def test_provision_selects_an_active_bible_version_from_the_request_locale
     await service.provision(ProvisionIdentityCommand(email="member@example.com", password=None, locale_code=locale_code))
 
     assert preferences_repository.created[0].bible_version == expected_bible_version
+
+
+@pytest.mark.asyncio
+async def test_provision_fails_before_writing_when_the_english_default_is_not_active():
+    user_repository = StubUserRepository()
+    end_user_repository = StubEndUserRepository()
+    preferences_repository = StubPreferencesRepository()
+    service, _, _, _ = _build_service(
+        user_repo=user_repository,
+        end_user_repo=end_user_repository,
+        prefs_repo=preferences_repository,
+        bible_repo=StubBibleRepository(active_youversion_bible_ids={"1392", "36"}),
+    )
+
+    with pytest.raises(ApiBaseException) as exc_info:
+        await service.provision(ProvisionIdentityCommand(email="member@example.com", password=None, locale_code="en-US"))
+
+    assert exc_info.value.status_code == 503
+    assert user_repository.created == []
+    assert end_user_repository.created == []
+    assert preferences_repository.created == []
 
 
 @pytest.mark.asyncio
@@ -201,7 +222,7 @@ async def test_provision_fails_before_writing_when_the_locale_default_is_not_act
         user_repo=user_repository,
         end_user_repo=end_user_repository,
         prefs_repo=preferences_repository,
-        bible_repo=StubBibleRepository(active_youversion_bible_ids={"113", "36"}),
+        bible_repo=StubBibleRepository(active_youversion_bible_ids={"111", "36"}),
     )
 
     with pytest.raises(ApiBaseException) as exc_info:

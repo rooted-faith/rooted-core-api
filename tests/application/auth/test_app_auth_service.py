@@ -98,7 +98,7 @@ class StubPreferencesRepository:
 
 class StubBibleRepository:
     async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
-        return youversion_bible_id in {"113", "1392", "36"}
+        return youversion_bible_id in {"111", "1392", "36"}
 
 
 class StubJwtProvider:

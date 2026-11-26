@@ -36,7 +36,7 @@ class StubPreferencesRepository:
 
 class StubBibleRepository:
     def __init__(self, active_youversion_bible_ids: set[str] | None = None):
-        self.active_youversion_bible_ids = active_youversion_bible_ids or {"113", "1392", "36"}
+        self.active_youversion_bible_ids = active_youversion_bible_ids or {"111", "1392", "36"}
 
     async def youversion_bible_id_is_active(self, youversion_bible_id: str) -> bool:
         return youversion_bible_id in self.active_youversion_bible_ids
@@ -92,9 +92,9 @@ async def test_update_preferences_accepts_an_active_youversion_bible_id() -> Non
 
 @pytest.mark.asyncio
 async def test_update_preferences_rejects_an_inactive_or_unknown_bible_version() -> None:
-    service, end_user, repository = build_service(StubBibleRepository(active_youversion_bible_ids={"113"}))
+    service, end_user, repository = build_service(StubBibleRepository(active_youversion_bible_ids={"111"}))
 
     with pytest.raises(BadRequestException):
         await service.update_preferences(auth_user_id=end_user.auth_user_id, command=UpdatePreferencesCommand(bible_version="cuv1919"))
 
-    assert repository.preferences.bible_version == "113"
+    assert repository.preferences.bible_version == "111"
