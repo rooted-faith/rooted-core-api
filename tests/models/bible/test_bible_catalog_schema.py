@@ -44,7 +44,14 @@ def test_bible_verse_replaces_content_with_nullable_lines_search_text_and_verse_
     assert isinstance(columns.search_text.type, sa.Text)
 
 
-def test_bible_version_and_book_columns_are_unchanged() -> None:
+def test_bible_version_has_nullable_publisher_name() -> None:
+    column = BibleVersion.__table__.c.publisher_name
+    assert column.nullable is True
+    assert isinstance(column.type, sa.String)
+    assert column.type.length == 255
+
+
+def test_bible_version_and_book_have_exactly_these_columns() -> None:
     assert set(BibleVersion.__table__.c.keys()) == {
         "id",
         "youversion_bible_id",
@@ -56,6 +63,7 @@ def test_bible_version_and_book_columns_are_unchanged() -> None:
         "copyright",
         "promotional_content",
         "publisher_url",
+        "publisher_name",
         "youversion_deep_link",
         "organization_id",
         "is_active",
