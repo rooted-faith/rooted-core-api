@@ -6,6 +6,7 @@ import click
 
 from portal.domain.bible.entities import BibleChapterAddress
 
+from .backfill_bible_publisher_names import backfill_bible_publisher_names_process
 from .bible import dump_bible_process
 from .constants import DEFAULT_BIBLE_DATA_DIR
 from .import_bible import import_bible_data_process
@@ -52,6 +53,20 @@ def import_bible_cmd(bible_id: str, data_dir: str):
     3. Empty Bible verse shells from bible_data/{bible_id}/meta/index.json
     """
     import_bible_data_process(bible_id=bible_id, data_dir=data_dir)
+
+
+@cli.command(name="backfill-bible-publisher-names")
+@click.option("--data-dir", default=DEFAULT_BIBLE_DATA_DIR, show_default=True, help="Bible data directory")
+@click.option("--bible-id", default=None, help="Limit to one YouVersion Bible ID (default: all under data-dir)")
+def backfill_bible_publisher_names_cmd(data_dir: str, bible_id: str | None):
+    """
+    Metadata-only: set bible.versions.publisher_name from local meta/bible.json.
+
+    Matches existing versions by YouVersion Bible ID. Does not import books or verses.
+    Missing or empty source names leave stored values unchanged.
+    Requires the publisher_name schema migration (ROO-100 / #137).
+    """
+    backfill_bible_publisher_names_process(data_dir=data_dir, bible_id=bible_id)
 
 
 @cli.command(name="list-legacy-bible-chapters")

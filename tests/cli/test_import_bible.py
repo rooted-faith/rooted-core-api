@@ -70,24 +70,15 @@ class StubContainer:
         return self._session
 
 
-@pytest.mark.asyncio
-async def test_import_bible_loads_index_as_empty_verse_shells_without_passages_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    bible_id = "1392"
-    version_id = uuid4()
-    genesis_id = uuid4()
-    session = StubSession(values=[version_id, genesis_id])
+def _write_bible_fixture(tmp_path: Path, *, bible_id: str, bible_meta: dict, books: list[dict] | None = None) -> None:
     meta_dir = tmp_path / bible_id / "meta"
     meta_dir.mkdir(parents=True)
-    (meta_dir / "bible.json").write_text(
-        json.dumps(
-            {"id": bible_id, "abbreviation": "CCBT", "title": "Chinese Contemporary Bible", "localized_title": "當代譯本", "language_tag": "zh-Hant-TW"}
-        ),
-        encoding="utf-8",
-    )
+    (meta_dir / "bible.json").write_text(json.dumps(bible_meta), encoding="utf-8")
     (meta_dir / "index.json").write_text(
         json.dumps(
             {
-                "books": [
+                "books": books
+                or [
                     {
                         "id": "GEN",
                         "title": "Genesis",
@@ -97,6 +88,19 @@ async def test_import_bible_loads_index_as_empty_verse_shells_without_passages_d
             }
         ),
         encoding="utf-8",
+    )
+
+
+@pytest.mark.asyncio
+async def test_import_bible_loads_index_as_empty_verse_shells_without_passages_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bible_id = "1392"
+    version_id = uuid4()
+    genesis_id = uuid4()
+    session = StubSession(values=[version_id, genesis_id])
+    _write_bible_fixture(
+        tmp_path,
+        bible_id=bible_id,
+        bible_meta={"id": bible_id, "abbreviation": "CCBT", "title": "Chinese Contemporary Bible", "localized_title": "當代譯本", "language_tag": "zh-Hant-TW"},
     )
     monkeypatch.setattr(import_bible, "Container", lambda: StubContainer(session))
 
@@ -111,3 +115,90 @@ async def test_import_bible_loads_index_as_empty_verse_shells_without_passages_d
         {"chapter": 1, "verse": 1, "verse_end": None, "lines": None, "search_text": None},
         {"chapter": 1, "verse": 2, "verse_end": None, "lines": None, "search_text": None},
     ]
+
+
+@pytest.mark.asyncio
+async def test_import_bible_retains_publisher_name_from_source_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bible_id = "111"
+    version_id = uuid4()
+    genesis_id = uuid4()
+    session = StubSession(values=[version_id, genesis_id])
+    _write_bible_fixture(
+        tmp_path,
+        bible_id=bible_id,
+        bible_meta={
+            "id": bible_id,
+            "abbreviation": "NIV11",
+            "title": "New International Version 2011",
+            "localized_title": "New International Version",
+            "language_tag": "en",
+            "publisher_name": "Biblica, Inc.",
+            "publisher_url": "https://www.biblica.com/yv-learn-more/",
+            "copyright": "Copyright © Biblica, Inc.",
+        },
+    )
+    monkeypatch.setattr(import_bible, "Container", lambda: StubContainer(session))
+
+    await import_bible.import_bible_data(bible_id=bible_id, data_dir=str(tmp_path))
+
+    version_insert = next(values for model, values in session.inserts if model is BibleVersion)
+    version_update = next(values for model, values in session.updates if model is BibleVersion)
+    assert version_insert["publisher_name"] == "Biblica, Inc."
+    assert version_update["publisher_name"] == "Biblica, Inc."
+    assert version_insert["youversion_bible_id"] == bible_id
+    assert version_insert["publisher_url"] == "https://www.biblica.com/yv-learn-more/"
+    assert version_insert["copyright"] == "Copyright © Biblica, Inc."
+
+
+@pytest.mark.asyncio
+async def test_import_bible_stores_null_publisher_name_when_source_missing_or_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bible_id = "1392"
+    version_id = uuid4()
+    genesis_id = uuid4()
+    session = StubSession(values=[version_id, genesis_id])
+    _write_bible_fixture(
+        tmp_path,
+        bible_id=bible_id,
+        bible_meta={
+            "id": bible_id,
+            "abbreviation": "CCBT",
+            "title": "Chinese Contemporary Bible",
+            "localized_title": "當代譯本",
+            "language_tag": "zh-Hant-TW",
+            "publisher_name": "   ",
+        },
+    )
+    monkeypatch.setattr(import_bible, "Container", lambda: StubContainer(session))
+
+    await import_bible.import_bible_data(bible_id=bible_id, data_dir=str(tmp_path))
+
+    version_insert = next(values for model, values in session.inserts if model is BibleVersion)
+    version_update = next(values for model, values in session.updates if model is BibleVersion)
+    assert version_insert["publisher_name"] is None
+    assert "publisher_name" not in version_update
+
+
+@pytest.mark.asyncio
+async def test_import_bible_upsert_omits_publisher_name_when_source_blank(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Re-import without a source publisher name must not clear a stored name via conflict update."""
+    bible_id = "111"
+    version_id = uuid4()
+    genesis_id = uuid4()
+    session = StubSession(values=[version_id, genesis_id])
+    _write_bible_fixture(
+        tmp_path,
+        bible_id=bible_id,
+        bible_meta={
+            "id": bible_id,
+            "abbreviation": "NIV11",
+            "title": "New International Version 2011",
+            "localized_title": "New International Version",
+            "language_tag": "en",
+        },
+    )
+    monkeypatch.setattr(import_bible, "Container", lambda: StubContainer(session))
+
+    await import_bible.import_bible_data(bible_id=bible_id, data_dir=str(tmp_path))
+
+    version_update = next(values for model, values in session.updates if model is BibleVersion)
+    assert "publisher_name" not in version_update

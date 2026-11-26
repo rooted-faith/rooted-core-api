@@ -17,6 +17,14 @@ from portal.models import BibleBook, BibleVerse, BibleVersion
 from .constants import DEFAULT_BIBLE_DATA_DIR
 
 
+def normalize_publisher_name(value: object) -> str | None:
+    """Return the source publisher name exactly, or None when missing/blank."""
+    if not isinstance(value, str):
+        return None
+    publisher_name = value.strip()
+    return publisher_name or None
+
+
 async def import_bible_data(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DIR):
     """
     Import Bible metadata, books, and empty verse shells from a dumped index.
@@ -52,6 +60,8 @@ async def import_bible_data(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DI
             except ValueError, TypeError:
                 logger.warning(f"Invalid organization_id: {bible_meta.get('organization_id')}")
 
+        publisher_name = normalize_publisher_name(bible_meta.get("publisher_name"))
+
         click.echo(f"Importing Bible version: {bible_meta.get('localized_title', bible_meta.get('title'))}...")
         await (
             session.insert(BibleVersion)
@@ -65,6 +75,7 @@ async def import_bible_data(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DI
                 copyright=bible_meta.get("copyright"),
                 promotional_content=bible_meta.get("promotional_content"),
                 publisher_url=bible_meta.get("publisher_url"),
+                publisher_name=publisher_name,
                 youversion_deep_link=bible_meta.get("youversion_deep_link"),
                 organization_id=organization_id,
                 is_active=True,
@@ -83,6 +94,7 @@ async def import_bible_data(bible_id: str, data_dir: str = DEFAULT_BIBLE_DATA_DI
                     "youversion_deep_link": bible_meta.get("youversion_deep_link"),
                     "organization_id": organization_id,
                     "is_active": True,
+                    **({"publisher_name": publisher_name} if publisher_name is not None else {}),
                 },
             )
             .execute()

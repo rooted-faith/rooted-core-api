@@ -57,6 +57,9 @@ uv run pytest
 uv run python -m portal.cli.main import-bible --bible-id 1392
 uv run python -m portal.cli.main dump-bible --bible-id 1392 --out dump
 
+# Publisher-name metadata backfill (content ops; docs/operations/bible-publisher-names.md)
+uv run python -m portal.cli.main backfill-bible-publisher-names [--bible-id 111]
+
 # Upgrade chapters filled without paragraph boundaries (content ops; docs/operations/bible-paragraph-boundaries.md)
 uv run python -m portal.cli.main list-legacy-bible-chapters --bible-id 1392 [--book REV]
 uv run python -m portal.cli.main refill-bible-chapters --bible-id 1392 --chapter REV.21 [--force]
