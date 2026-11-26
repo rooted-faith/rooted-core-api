@@ -28,6 +28,7 @@ class BibleVersion(ModelBase, AuditCreatedAtMixin, AuditUpdatedAtMixin):
     copyright = Column(sa.Text, nullable=True, comment="Copyright information")
     promotional_content = Column(sa.Text, nullable=True, comment="Promotional content")
     publisher_url = Column(sa.String(500), nullable=True, comment="Publisher URL")
+    publisher_name = Column(sa.String(255), nullable=True, comment="Publisher name from source metadata, e.g., 'Biblica, Inc.'")
     youversion_deep_link = Column(sa.String(500), nullable=True, comment="YouVersion deep link")
     organization_id = Column(UUID, nullable=True, comment="Organization ID")
     is_active = Column(sa.Boolean, default=True, nullable=False, comment="Is version active", index=True)
