@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 
 from portal.application.app.end_user_provisioning_service import EndUserProvisioningService
 from portal.application.app.preferences_service import PreferencesService
+from portal.application.app_support.app_support_service import AppSupportService
 from portal.application.auth.app_apple_auth_service import AppAppleAuthService
 from portal.application.auth.app_auth_service import AppAuthService
 from portal.application.auth.app_google_auth_service import AppGoogleAuthService
@@ -16,7 +17,9 @@ from portal.application.bible.chapter_fill_gate import ChapterFillGate
 from portal.application.devotion.devotion_service import DevotionService
 from portal.application.push.push_service import PushService
 from portal.config import settings as app_settings
+from portal.domain.app_support.constants import AppSupportEnforcement
 from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
+from portal.infrastructure.app_support.env_policy_source import EnvAppSupportPolicySource
 from portal.infrastructure.cache.otp_token_cache import OtpTokenCache
 from portal.infrastructure.mail.otp_mailer import OtpMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
@@ -32,6 +35,11 @@ class AppContainer(containers.DeclarativeContainer):
     """Member-facing API services."""
 
     core = providers.DependenciesContainer()
+
+    app_support_policy_source = providers.Singleton(EnvAppSupportPolicySource, raw=app_settings.APP_SUPPORT_POLICY, environment=app_settings.ENV)
+    app_support_service = providers.Singleton(
+        AppSupportService, policy_source=app_support_policy_source, enforcement=AppSupportEnforcement(app_settings.APP_SUPPORT_ENFORCEMENT)
+    )
 
     bible_repository = providers.Factory(BibleRepository, session=core.request_session)
     youversion_client = providers.Factory(YouVersionHttpClient, app_key=app_settings.YVP_APP_KEY)

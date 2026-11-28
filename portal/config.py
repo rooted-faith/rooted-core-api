@@ -7,11 +7,11 @@ import logging
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource
 
@@ -151,6 +151,12 @@ class Configuration(BaseSettings):
     # [Member web apps — Origin -> app_code for /api/v1 auth]
     MEMBER_WEB_APPS: str = os.getenv(key="MEMBER_WEB_APPS", default="rooted-app|http://localhost:5174")
 
+    # [App support policy — ADR 0017, docs/operations/app-support-policy.md. Read once at process start.]
+    # JSON keyed by ENV then platform; missing or invalid entries make that platform's policy unavailable.
+    APP_SUPPORT_POLICY: str | None = os.getenv(key="APP_SUPPORT_POLICY") or None
+    # compatible (default) never rejects; enforced rejects unsupported or unidentified App requests. Any other value fails startup.
+    APP_SUPPORT_ENFORCEMENT: Literal["compatible", "enforced"] = os.getenv(key="APP_SUPPORT_ENFORCEMENT") or "compatible"
+
     # [Token Blacklist]
     TOKEN_BLACKLIST_REDIS_DB: int = int(os.getenv(key="TOKEN_BLACKLIST_REDIS_DB", default="1"))
     TOKEN_BLACKLIST_CLEANUP_INTERVAL: int = int(os.getenv(key="TOKEN_BLACKLIST_CLEANUP_INTERVAL", default="3600"))
@@ -208,6 +214,14 @@ class Configuration(BaseSettings):
             logger.warning("Firebase credentials not found; push notifications and test passcodes are unavailable until configured")
 
         return self
+
+    @field_validator("APP_SUPPORT_ENFORCEMENT", mode="before")
+    @classmethod
+    def _empty_enforcement_is_compatible(cls, value: Any) -> Any:
+        """An empty value (e.g. a copied example.env) keeps the safe default instead of failing startup."""
+        if isinstance(value, str) and not value.strip():
+            return "compatible"
+        return value
 
     @model_validator(mode="after")
     def _load_rate_limiters_config(self) -> "Configuration":
