@@ -1,0 +1,200 @@
+# Staging release from immutable date-based tags (ADR 0017 / ROO-162).
+# Pushing stg.YYMMDD.N on a commit reachable from main is the deploy authorization.
+# Concurrent runs wait; an in-progress rollout is never cancelled.
+name: Staging Release
+
+on:
+  push:
+    tags:
+      - "stg.*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: staging-api-deploy
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UV_VERSION: "0.12.4"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate:
+    name: Validate tag
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.target.outputs.image_tag }}
+      release: ${{ steps.target.outputs.release }}
+      revision: ${{ steps.target.outputs.revision }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release target
+        id: target
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          out="$(scripts/staging-release-target.sh "$REF_TYPE" "$REF_NAME" "$SHA")"
+          printf '%s\n' "$out" | tee -a "$GITHUB_OUTPUT"
+          publish="$(printf '%s\n' "$out" | awk -F= '/^publish=/{print $2}')"
+          if [[ "$publish" != "true" ]]; then
+            echo "Tag $REF_NAME is not eligible for staging release" >&2
+            exit 1
+          fi
+
+  test:
+    name: Test
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.revision }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Format
+        run: |
+          uv run ruff format --check
+          uv run ruff check portal tests
+
+      - name: Tests
+        run: uv run pytest
+
+      - name: Script tests
+        run: for test in scripts/*.test.sh; do "$test"; done
+
+  publish:
+    name: Build and publish
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    # No GitHub Environment here: the tag push is the only authorization (ADR 0017).
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+      digest: ${{ steps.push.outputs.digest }}
+      reused: ${{ steps.push.outputs.reused }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.revision }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        env:
+          SHA: ${{ needs.validate.outputs.revision }}
+          VERSION_LABEL: ${{ needs.validate.outputs.image_tag }}
+        run: |
+          docker build --platform linux/amd64 --provenance=false --sbom=false \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision="$SHA" \
+            --label org.opencontainers.image.version="$VERSION_LABEL" \
+            --label org.opencontainers.image.created="$(git show -s --format=%cI HEAD)" \
+            -t rooted-core-api:ci .
+
+      - name: Publish
+        id: push
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          REGISTRY: ${{ env.REGISTRY }}
+          REGISTRY_USER: ${{ vars.CONTAINER_REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.CONTAINER_REGISTRY_TOKEN }}
+          IMAGE_TAG: ${{ needs.validate.outputs.image_tag }}
+          REVISION: ${{ needs.validate.outputs.revision }}
+        run: scripts/ghcr-publish.sh rooted-core-api:ci "$IMAGE_TAG" "$REVISION" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Image record
+        env:
+          IMAGE_TAG: ${{ needs.validate.outputs.image_tag }}
+          REVISION: ${{ needs.validate.outputs.revision }}
+          IMAGE: ${{ steps.push.outputs.image }}
+          REUSED: ${{ steps.push.outputs.reused }}
+        run: |
+          {
+            echo "### Image record"
+            echo "| Source | Tag | Image | Reused |"
+            echo "| --- | --- | --- | --- |"
+            echo "| \`$REVISION\` | \`$IMAGE_TAG\` | \`$IMAGE\` | $REUSED |"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy staging
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    # No GitHub Environment approval gate: tag push authorizes deploy (ADR 0017).
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy and smoke
+        id: deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID_STG }}
+          RENDER_OWNER_ID: ${{ secrets.RENDER_OWNER_ID }}
+          RENDER_REGISTRY_CREDENTIAL_ID: ${{ secrets.RENDER_REGISTRY_CREDENTIAL_ID }}
+          RENDER_ENVIRONMENT_STG_ID: ${{ secrets.RENDER_ENVIRONMENT_STG_ID }}
+          STAGING_URL: https://api-stg.rootedfaith.app
+          IMAGE: ${{ needs.publish.outputs.image }}
+          RELEASE: ${{ needs.validate.outputs.release }}
+        run: scripts/deploy-staging-render.sh "$IMAGE" "$RELEASE" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Release record
+        if: always() && steps.deploy.outcome != 'skipped'
+        env:
+          REF: ${{ github.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          REVISION: ${{ needs.validate.outputs.revision }}
+          IMAGE_TAG: ${{ needs.validate.outputs.image_tag }}
+          RELEASE: ${{ needs.validate.outputs.release }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+          PREVIOUS_IMAGE: ${{ steps.deploy.outputs.previous_image }}
+          SMOKE: ${{ steps.deploy.outputs.smoke || 'not run' }}
+        run: |
+          jq -n --arg ref "$REF" --arg run "$RUN_URL" --arg revision "$REVISION" --arg image_tag "$IMAGE_TAG" \
+            --arg release "$RELEASE" --arg image "$IMAGE" --arg previous_image "$PREVIOUS_IMAGE" --arg smoke "$SMOKE" \
+            --arg deployed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{environment: "staging", ref: $ref, revision: $revision, image_tag: $image_tag, release: $release,
+              image: $image, previous_image: $previous_image, smoke: $smoke, deployed_at: $deployed_at, run: $run,
+              migration: "pending operator check"}' >release-record.json
+          {
+            echo "### Staging deployment"
+            echo '```json'
+            cat release-record.json
+            echo '```'
+            echo "Smoke checks only that /healthz answers. Migrate staging by hand if this version has new migrations."
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Keep release record
+        if: always() && steps.deploy.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-record-${{ needs.validate.outputs.image_tag }}-${{ github.run_attempt }}
+          path: release-record.json
+          retention-days: 90
