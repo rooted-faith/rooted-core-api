@@ -11,11 +11,12 @@ from starlette.middleware.cors import CORSMiddleware
 
 from portal.config import settings
 from portal.container import Container
+from portal.exceptions.api_error_response import api_exception_response
 from portal.exceptions.responses import ApiBaseException
 from portal.libs.consts.enums import APIScope
 from portal.libs.contexts.request_session_context import get_request_session
 from portal.libs.utils.lifespan import lifespan
-from portal.middlewares import AuthMiddleware, CoreRequestMiddleware
+from portal.middlewares import AppSupportGateMiddleware, AuthMiddleware, CoreRequestMiddleware
 from portal.routers import admin_api_router, api_router
 from portal.routers.webhooks import router as webhooks_router
 from portal.runtime_context import set_runtime_container
@@ -60,11 +61,13 @@ def _register_public_stack(application: FastAPI) -> None:
 def _register_api_stack(application: FastAPI) -> None:
     """
     App-user API surface with member JWT auth (Origin-bound azp).
+    The App build gate sits inside CORS and outside this app's database session and auth (ADR 0017).
     :param application:
     :return:
     """
     application.add_middleware(AuthMiddleware)
     _register_core_request_middleware(application)
+    application.add_middleware(AppSupportGateMiddleware)
     _register_cors(application)
 
 
@@ -99,16 +102,7 @@ def _setup_exception_handlers(application: FastAPI) -> None:
         session = get_request_session()
         if session is not None:
             await session.rollback()
-        content = defaultdict()
-        content["detail"] = exc.detail
-        if exc.error_code:
-            content["error_code"] = exc.error_code
-        if exc.context:
-            content["context"] = exc.context
-        if settings.is_dev:
-            content["debug_detail"] = exc.debug_detail
-            content["url"] = str(request.url)
-        return JSONResponse(content=content, status_code=exc.status_code)
+        return api_exception_response(request, exc)
 
     @application.exception_handler(Exception)
     async def exception_handler(request: Request, exc):

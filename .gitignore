@@ -5,6 +5,7 @@
 bible_data
 .codex
 docs/*
+!docs/api/
 !docs/adr/
 !docs/adr/**
 !docs/agents/

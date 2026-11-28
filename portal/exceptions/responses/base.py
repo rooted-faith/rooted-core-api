@@ -80,3 +80,23 @@ class NotImplementedException(ApiBaseException):
 
     def __init__(self, detail: str, headers: Optional[Dict[str, Any]] = None, **kwargs):
         super().__init__(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=detail, headers=headers, **kwargs)
+
+
+class UpgradeRequiredException(ApiBaseException):
+    """
+    Upgrade Required Exception: the client build is below the supported minimum
+    status_code: 426
+    """
+
+    def __init__(self, detail: str = "App update required", headers: Optional[Dict[str, Any]] = None, **kwargs):
+        super().__init__(status_code=status.HTTP_426_UPGRADE_REQUIRED, detail=detail, headers=headers, **kwargs)
+
+
+class ServiceUnavailableException(ApiBaseException):
+    """
+    Service Unavailable Exception
+    status_code: 503
+    """
+
+    def __init__(self, detail: str = "Service unavailable", headers: Optional[Dict[str, Any]] = None, **kwargs):
+        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail, headers=headers, **kwargs)
