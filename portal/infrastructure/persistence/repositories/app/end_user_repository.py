@@ -56,6 +56,7 @@ class PreferencesRepository:
                 reminder_time=preferences.reminder_time,
                 reminder_enabled=preferences.reminder_enabled,
                 week_start=preferences.week_start,
+                primary_fellowship_id=preferences.primary_fellowship_id,
             )
             .execute()
         )
@@ -74,6 +75,7 @@ class PreferencesRepository:
                 AppUserPreferences.reminder_time,
                 AppUserPreferences.reminder_enabled,
                 AppUserPreferences.week_start,
+                AppUserPreferences.primary_fellowship_id,
             )
             .where(AppUserPreferences.user_id == user_id)
             .fetchrow(as_model=UserPreferences)

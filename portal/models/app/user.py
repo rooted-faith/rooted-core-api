@@ -53,3 +53,10 @@ class AppUserPreferences(ModelBase, AuditMixin):
     reminder_time = Column(sa.Time(), nullable=True, comment="Daily reminder time")
     reminder_enabled = Column(sa.Boolean, nullable=False, server_default=sa.text("false"), comment="Whether reminder is enabled")
     week_start = Column(sa.String(10), nullable=False, server_default="sunday", comment="Week start: sunday|monday")
+    primary_fellowship_id = Column(
+        UUID,
+        sa.ForeignKey("fellowship.fellowship.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Account-synced Primary Fellowship; browsing another Fellowship does not change this",
+    )
