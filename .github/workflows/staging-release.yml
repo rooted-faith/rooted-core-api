@@ -74,6 +74,11 @@ jobs:
       - name: Install
         run: uv sync --frozen
 
+      - name: Configure test env
+        run: |
+          cp example.env .env
+          sed -i 's/^SQL_ECHO=$/SQL_ECHO=false/' .env
+
       - name: Lint
         run: uv run ruff check portal tests
 

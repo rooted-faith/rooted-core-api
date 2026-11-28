@@ -35,6 +35,12 @@ jobs:
       - name: Install
         run: uv sync --frozen
 
+      - name: Configure test env
+        run: |
+          cp example.env .env
+          # Empty SQL_ECHO is rejected by Configuration; cloud/local notes require false.
+          sed -i 's/^SQL_ECHO=$/SQL_ECHO=false/' .env
+
       - name: Lint
         # Match AGENTS.md: check portal/tests only. Whole-tree format --check is
         # deferred until existing format drift outside this change is cleaned up.
