@@ -10,6 +10,6 @@ class AppSupportPolicySource(Protocol):
     @property
     def environment(self) -> str: ...
 
-    def get(self, platform: AppPlatform) -> AppSupportPolicy | None:
-        """The valid policy for the platform, or None when it is missing or invalid."""
+    async def get(self, platform: AppPlatform) -> AppSupportPolicy | None:
+        """The valid policy for the platform, or None when it is missing, invalid, or cannot be read."""
         ...

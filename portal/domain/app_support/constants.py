@@ -20,3 +20,7 @@ class AppSupportErrorCode(StrEnum):
     APP_UPDATE_REQUIRED = "APP_UPDATE_REQUIRED"
     APP_IDENTITY_INVALID = "APP_IDENTITY_INVALID"
     APP_SUPPORT_POLICY_UNAVAILABLE = "APP_SUPPORT_POLICY_UNAVAILABLE"
+
+
+# System settings that hold the policy: one `object` setting per platform, keyed by the platform value.
+APP_SUPPORT_SETTING_NAMESPACE = "app_support"
