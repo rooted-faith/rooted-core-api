@@ -1,0 +1,53 @@
+# Repository checks for pull requests and main (ADR 0017 / ROO-162).
+# Main merges run checks only — no container image build and no staging mutation.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UV_VERSION: "0.12.4"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Configure test env
+        run: |
+          cp example.env .env
+          # Empty SQL_ECHO is rejected by Configuration; cloud/local notes require false.
+          sed -i 's/^SQL_ECHO=$/SQL_ECHO=false/' .env
+
+      - name: Lint
+        # Match AGENTS.md: check portal/tests only. Whole-tree format --check is
+        # deferred until existing format drift outside this change is cleaned up.
+        run: uv run ruff check portal tests
+
+      - name: Tests
+        run: uv run pytest
+
+      - name: Script tests
+        run: for test in scripts/*.test.sh; do "$test"; done

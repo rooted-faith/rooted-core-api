@@ -34,6 +34,11 @@ class CustomSource(EnvSettingsSource):
         if field.annotation is bool:
             return Converter.to_bool(value, default=field.default or False)
         if isinstance(list[str], type(field.annotation)):
+            if value is None:
+                default = field.default
+                return list(default) if default is not None else []
+            if isinstance(value, list):
+                return value
             return list(value.split(","))
         return value
 

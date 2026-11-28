@@ -11,6 +11,7 @@ docs/*
 !docs/migrations/
 !docs/operations/
 !docs/research/
+!docs/specs/
 .agents/
 temp/
 
