@@ -14,16 +14,21 @@ from portal.application.auth.otp_test_passcode_service import OtpTestPasscodeSer
 from portal.application.bible.bible_service import BibleService
 from portal.application.bible.chapter_fill_gate import ChapterFillGate
 from portal.application.devotion.devotion_service import DevotionService
+from portal.application.fellowship.fellowship_service import FellowshipService
 from portal.application.push.push_service import PushService
 from portal.config import settings as app_settings
 from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
 from portal.infrastructure.cache.otp_token_cache import OtpTokenCache
+from portal.infrastructure.fellowship.capacity_settings import FellowshipCapacitySettings
+from portal.infrastructure.fellowship.primary_fellowship_store import PrimaryFellowshipStore
 from portal.infrastructure.mail.otp_mailer import OtpMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
 from portal.infrastructure.persistence.repositories.devotion.devotion_repository import DevotionRepository
+from portal.infrastructure.persistence.repositories.fellowship.fellowship_repository import FellowshipRepository
 from portal.infrastructure.persistence.repositories.push.device_repository import DeviceRepository
 from portal.infrastructure.persistence.repositories.push.notification_repository import NotificationRepository
+from portal.infrastructure.persistence.repositories.system.setting_repository import SettingRepository
 from portal.infrastructure.persistence.repositories.user_repository import UserRepository
 from portal.infrastructure.youversion.youversion_http_client import YouVersionHttpClient
 
@@ -70,6 +75,18 @@ class AppContainer(containers.DeclarativeContainer):
 
     preferences_service = providers.Factory(
         PreferencesService, end_user_repository=end_user_repository, preferences_repository=preferences_repository, bible_repository=bible_repository
+    )
+
+    setting_repository = providers.Factory(SettingRepository, session=core.request_session)
+    fellowship_repository = providers.Factory(FellowshipRepository, session=core.request_session)
+    fellowship_capacity_settings = providers.Factory(FellowshipCapacitySettings, setting_repository=setting_repository)
+    primary_fellowship_store = providers.Factory(PrimaryFellowshipStore, preferences_repository=preferences_repository)
+    fellowship_service = providers.Factory(
+        FellowshipService,
+        end_user_repository=end_user_repository,
+        fellowship_repository=fellowship_repository,
+        capacity_settings=fellowship_capacity_settings,
+        primary_fellowship_store=primary_fellowship_store,
     )
 
     member_web_app_registry = providers.Singleton(lambda: MemberWebAppRegistry(parse_member_web_apps(app_settings.MEMBER_WEB_APPS)))

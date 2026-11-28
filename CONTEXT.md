@@ -102,27 +102,83 @@ Fellowship and analytics code paths must not JOIN or export `journal_entries`, `
 
 ### Fellowship
 
-**Group**:
-A small fellowship (4–15 members) with invite code, created by a member. Not an open community.
-_Avoid_: church (whole congregation ERP), channel (chat product)
+**Fellowship (團契)**:
+An invitation-based community of people who already know one another, sharing prayer, devotional insights, and fellowship life. A Fellowship may contain **Groups**.
+_Avoid_: using Group as a synonym, public social feed, church ERP
+
+**Group (小組)**:
+A subgroup within a **Fellowship**, with a **Group Leader** who leads that subgroup.
+_Avoid_: using Fellowship as a synonym, independent fellowship, chat channel
+
+**Group reorganization (小組重組)**:
+Establishing new Groups for a new membership arrangement, followed by authorized archival of the old Groups. Old Groups and their publications retain their identity rather than being repurposed as the new Groups.
+_Avoid_: reusing an old Group's identity for a newly organized Group, automatically moving old publications into a new audience
+
+**Archived Group (已封存小組)**:
+A former Group retained for its historical publications after active participation has ended. It accepts no new publications and does not transfer its content to replacement Groups.
+_Avoid_: deleting group history, treating an archive as permission to broaden readership
+
+**Group Leader (小組長)**:
+A person who leads a **Group** within a **Fellowship**.
+_Avoid_: treating every fellowship administrator as a Group Leader
+
+**Awaiting Group Leader (待指派小組長)**:
+A Group temporarily without a Group Leader after its last Group Leader deletes their account. The Group is retained while an Owner or Admin arranges a replacement.
+_Avoid_: treating account deletion as automatic Group archival or dissolution, applying this exception to ordinary departure or role changes
+
+**Primary Fellowship (主要團契)**:
+The Fellowship an End user chooses to see whenever they enter the Fellowship tab. Browsing a different Fellowship does not itself change this preference.
+_Avoid_: last-viewed Fellowship, automatically replacing the preference when switching Fellowships
+
+**Post (貼文)**:
+A contribution about fellowship life, activities, or general conversation, distinct from a devotional **Share**. A Post may be explicitly published for public reading; prayer requests and devotional Shares remain internal.
+_Avoid_: treating every fellowship content type as a Post, conflating with private journal writing
+
+**Member care (成員關懷)**:
+Intentional care for a fellowship member, initiated by that member or identified manually by an Owner, Admin, or Group Leader. A need for care is not inferred from devotion counts or App activity.
+_Avoid_: Walk together (同行, an unclear feature name), spiritual performance assessment, automatic inactivity-based care labels
+
+**Regular gathering (固定聚會)**:
+A recurring fellowship or group gathering held at an established time. It does not require attendance responses.
+_Avoid_: treating each recurrence as a separate attendance invitation
+
+**One-time gathering or activity (一次性聚會／活動)**:
+A fellowship or group event scheduled for a particular date and time, with attendance responses available to members.
+_Avoid_: applying its attendance-response flow to every Regular gathering
+
+**Gathering format (聚會形式)**:
+Whether a gathering takes place in person, online, or as a hybrid of both. A hybrid gathering offers both a physical location and an online meeting link.
+_Avoid_: making a physical address and an online meeting link mutually exclusive for hybrid gatherings
 
 **Covenant**:
-Explicit acceptance of group norms (product copy fixed in meaning, translatable) before full participation — stored as `covenant_accepted_at` on membership.
+Explicit acceptance of fellowship norms before full participation, including respect for others and protection of private prayer and sharing content.
 _Avoid_: skipping covenant for “faster onboarding” on real groups
 
 **Membership**:
-Links user to group with role `member` or `shepherd` (組長). Shepherd sees pastoral **walk alongside** signals — not competitive rankings.
-_Avoid_: admin (that term is for **Admin User** on the admin console)
+An End user's participation in a **Fellowship** or one of its **Groups**. Fellowship roles use the terms Owner, Admin, Group Leader, and Member; these are distinct from the platform's **Admin User**.
+_Avoid_: conflating fellowship administration with platform administration
+
+**Content audience**:
+The intended readers of a published fellowship item: the whole **Fellowship**, one **Group**, or several selected Groups within that Fellowship. Owner and Admin roles can read all published content within their Fellowship; private journal writing remains outside this audience model.
+_Avoid_: treating a multi-group audience as public publication, automatically sharing private writing
+
+**Fellowship discoverability**:
+A Fellowship's public/private classification, determining whether it may appear in future search. It does not determine whether individual content items are publicly readable.
+_Avoid_: interpreting a public Fellowship as making all its content public, interpreting a private Fellowship as forbidding explicitly public content
+
+**Fellowship invitation**:
+An invitation to join a Fellowship, shareable as a link or QR code, with direct admission or approval required. It does not assign a Group; administrators arrange Group membership after admission.
+_Avoid_: group-specific invitation, treating a QR code as a different admission policy from its corresponding link
 
 **Prayer request**:
-Group-visible prayer need on the prayer wall. Others mark **prayed** (代禱) — not a comment thread.
+A prayer need explicitly published on a fellowship prayer wall. Others may mark **prayed** (代禱) and leave a response.
 _Avoid_: DM, chat message
 
 **Encouragement**:
 Short response tied to a prayer request — lightweight, not a nested forum.
 
 **Share (亮光)**:
-Optional sharing of insight from devotion to the group with explicit **privacy** and optional `lesson_id` link.
+An explicitly published devotional insight or faith response for a chosen internal **Content audience**, optionally associated with a **Daily lesson**. Unlike a **Post**, a Share is never published for public reading.
 _Avoid_: auto-posting journal or notes
 
 **Demo group**:
@@ -145,7 +201,7 @@ End-user settings and presentation defaults (display name, theme, font scale, Bi
 _Avoid_: Admin User profile fields, burying prefs inside fellowship or journal rows, a stored `locale` column keyed to the account (language is per-device, not a synced account preference — see **Device**)
 
 **Admin User**:
-Staff account using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from **shepherd** (group role) and from **End user**. May share the same auth credential as an End user when one person holds both capacities. Signs in with that **Auth credential** via password and/or an **Identity link**; an Identity-provider sign-in alone never creates an Admin User.
+Staff account using the **admin** API (`/admin`) for RBAC, content, and moderation — distinct from Fellowship roles (Owner, Admin, Group Leader, Member) and from **End user**. May share the same auth credential as an End user when one person holds both capacities. Signs in with that **Auth credential** via password and/or an **Identity link**; an Identity-provider sign-in alone never creates an Admin User.
 _Avoid_: Operator, treating Membership role as admin, auto-provisioning staff from Google/Apple alone
 
 **Auth credential**:

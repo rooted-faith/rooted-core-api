@@ -33,3 +33,6 @@ class UserPreferences(UUIDBaseModel):
     reminder_time: Optional[time] = Field(default=None)
     reminder_enabled: bool = Field(default=False)
     week_start: WeekStart = Field(default="sunday")
+    primary_fellowship_id: Optional[UUID] = Field(
+        default=None, description="Account-synced Primary Fellowship; browsing another Fellowship does not change this"
+    )
