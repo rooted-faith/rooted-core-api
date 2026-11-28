@@ -19,8 +19,9 @@ from portal.application.push.push_service import PushService
 from portal.config import settings as app_settings
 from portal.domain.app_support.constants import AppSupportEnforcement
 from portal.domain.auth.member_web_app import MemberWebAppRegistry, parse_member_web_apps
-from portal.infrastructure.app_support.env_policy_source import EnvAppSupportPolicySource
+from portal.infrastructure.app_support.setting_policy_source import SessionSettingLoader, SettingAppSupportPolicySource
 from portal.infrastructure.cache.otp_token_cache import OtpTokenCache
+from portal.infrastructure.cache.setting_cache import SettingCache
 from portal.infrastructure.mail.otp_mailer import OtpMailer
 from portal.infrastructure.persistence.repositories.app.end_user_repository import EndUserRepository, PreferencesRepository
 from portal.infrastructure.persistence.repositories.bible.bible_repository import BibleRepository
@@ -36,7 +37,13 @@ class AppContainer(containers.DeclarativeContainer):
 
     core = providers.DependenciesContainer()
 
-    app_support_policy_source = providers.Singleton(EnvAppSupportPolicySource, raw=app_settings.APP_SUPPORT_POLICY, environment=app_settings.ENV)
+    # Singleton: the source keeps this process's last-known-good copy for Redis/database outages.
+    app_support_policy_source = providers.Singleton(
+        SettingAppSupportPolicySource,
+        environment=app_settings.ENV,
+        setting_cache=providers.Singleton(SettingCache, redis_client=core.redis_client),
+        load_setting=providers.Singleton(SessionSettingLoader, session_factory=core.db_session.provider),
+    )
     app_support_service = providers.Singleton(
         AppSupportService, policy_source=app_support_policy_source, enforcement=AppSupportEnforcement(app_settings.APP_SUPPORT_ENFORCEMENT)
     )

@@ -151,9 +151,7 @@ class Configuration(BaseSettings):
     # [Member web apps — Origin -> app_code for /api/v1 auth]
     MEMBER_WEB_APPS: str = os.getenv(key="MEMBER_WEB_APPS", default="rooted-app|http://localhost:5174")
 
-    # [App support policy — ADR 0017, docs/operations/app-support-policy.md. Read once at process start.]
-    # JSON keyed by ENV then platform; missing or invalid entries make that platform's policy unavailable.
-    APP_SUPPORT_POLICY: str | None = os.getenv(key="APP_SUPPORT_POLICY") or None
+    # [App support — ADR 0017, docs/operations/app-support-policy.md. The policy itself lives in system settings.]
     # compatible (default) never rejects; enforced rejects unsupported or unidentified App requests. Any other value fails startup.
     APP_SUPPORT_ENFORCEMENT: Literal["compatible", "enforced"] = os.getenv(key="APP_SUPPORT_ENFORCEMENT") or "compatible"
 

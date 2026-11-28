@@ -26,7 +26,7 @@ class AppSupportService:
         :param platform:
         :return:
         """
-        policy = self._require_policy(self._parse_platform(platform))
+        policy = await self._require_policy(self._parse_platform(platform))
         return AppSupportPolicyResult(
             environment=self._policy_source.environment,
             platform=policy.platform,
@@ -50,7 +50,7 @@ class AppSupportService:
             return
         app_platform = self._parse_platform(platform)
         app_build = self._parse_build(build)
-        policy = self._require_policy(app_platform)
+        policy = await self._require_policy(app_platform)
         if not policy.supports(app_build):
             raise UpgradeRequiredException(
                 detail="This App build is no longer supported. Update the App to continue.",
@@ -72,8 +72,8 @@ class AppSupportService:
             raise BadRequestException(detail="Invalid App build number", error_code=AppSupportErrorCode.APP_IDENTITY_INVALID)
         return int(value)
 
-    def _require_policy(self, platform: AppPlatform) -> AppSupportPolicy:
-        policy = self._policy_source.get(platform)
+    async def _require_policy(self, platform: AppPlatform) -> AppSupportPolicy:
+        policy = await self._policy_source.get(platform)
         if policy is None:
             raise ServiceUnavailableException(
                 detail="App support policy is unavailable", error_code=AppSupportErrorCode.APP_SUPPORT_POLICY_UNAVAILABLE, context={"platform": platform.value}

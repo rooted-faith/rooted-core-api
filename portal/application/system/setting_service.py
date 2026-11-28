@@ -8,6 +8,8 @@ from uuid import UUID, uuid4
 from portal.application.rbac.commands import BulkIdsCommand, DeleteCommand
 from portal.application.system.commands import CreateSettingCommand, UpdateSettingCommand
 from portal.application.system.results import CreateIdResult, SettingListResult, SettingResult
+from portal.domain.app_support.constants import APP_SUPPORT_SETTING_NAMESPACE, AppPlatform
+from portal.domain.app_support.policy import InvalidAppSupportPolicy, parse_platform_policy
 from portal.domain.system.constants import SettingValueType, SystemErrorCode
 from portal.domain.system.entities import Setting
 from portal.exceptions.responses import BadRequestException, ConflictErrorException, NotFoundException
@@ -52,6 +54,27 @@ class SettingService:
         raise BadRequestException(detail=f"Unsupported value_type: {value_type}")
 
     @staticmethod
+    def _validate_namespace_rules(namespace: str, setting_key: str, value_type: str, value: Any) -> None:
+        """Namespaces whose values a running feature reads get their own rules, so a typo cannot be saved."""
+        if namespace != APP_SUPPORT_SETTING_NAMESPACE:
+            return
+
+        def invalid(detail: str, reasons: list[str]) -> BadRequestException:
+            return BadRequestException(detail=detail, error_code=SystemErrorCode.SETTING_VALUE_INVALID.value, context={"reasons": reasons})
+
+        try:
+            platform = AppPlatform(setting_key)
+        except ValueError:
+            platforms = ", ".join(item.value for item in AppPlatform)
+            raise invalid(f"{namespace} setting_key must be one of: {platforms}", [f"setting_key: unknown platform {setting_key!r}"]) from None
+        if value_type != SettingValueType.OBJECT.value:
+            raise invalid(f"{namespace} settings must have value_type object", [f"value_type: must be object, got {value_type!r}"])
+        try:
+            parse_platform_policy(platform, value)
+        except InvalidAppSupportPolicy as exc:
+            raise invalid("Invalid App support policy", exc.reasons) from None
+
+    @staticmethod
     def _assert_value_type_enum(value_type: str) -> None:
         allowed = {item.value for item in SettingValueType}
         if value_type not in allowed:
@@ -84,6 +107,7 @@ class SettingService:
             raise BadRequestException(detail="namespace and setting_key are required")
         self._assert_value_type_enum(command.value_type)
         self._validate_value_type(command.value_type, command.value)
+        self._validate_namespace_rules(namespace, setting_key, command.value_type, command.value)
 
         existing = await self._repository.get_by_namespace_key(namespace, setting_key, include_deleted=True)
         if existing:
@@ -114,6 +138,7 @@ class SettingService:
         if not row:
             raise NotFoundException(detail="Setting not found", error_code=SystemErrorCode.SETTING_NOT_FOUND.value)
         self._validate_value_type(row.value_type, command.value)
+        self._validate_namespace_rules(row.namespace, row.setting_key, row.value_type, command.value)
         updated = await self._repository.update_value(setting_id=setting_id, value=command.value, remark=command.remark)
         if updated < 1:
             raise NotFoundException(detail="Setting not found", error_code=SystemErrorCode.SETTING_NOT_FOUND.value)
