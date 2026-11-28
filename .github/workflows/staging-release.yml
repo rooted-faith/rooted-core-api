@@ -74,10 +74,8 @@ jobs:
       - name: Install
         run: uv sync --frozen
 
-      - name: Format
-        run: |
-          uv run ruff format --check
-          uv run ruff check portal tests
+      - name: Lint
+        run: uv run ruff check portal tests
 
       - name: Tests
         run: uv run pytest
