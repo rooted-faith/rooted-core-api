@@ -489,7 +489,8 @@ async def test_exempt_surfaces_are_never_gated(make_harness, method, url):
     response = await harness.client.request(method, url, headers={"X-App-Platform": "ios", "X-App-Build": "0"})
     unidentified = await harness.client.request(method, url)
 
+    # The surface may fail for its own reasons (an unconfigured webhook answers 503); it must not be the gate.
     for result in (response, unidentified):
-        assert result.status_code not in (426, 503)
+        assert result.status_code != 426
         error_code = result.json().get("error_code", "") if result.headers.get("content-type", "").startswith("application/json") else ""
         assert not str(error_code).startswith("APP_")
