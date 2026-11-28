@@ -6,7 +6,7 @@ name: Staging Release
 on:
   push:
     tags:
-      - "stg.*"
+      - "stg.*.*"
 
 permissions:
   contents: read
