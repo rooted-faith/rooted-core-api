@@ -37,8 +37,10 @@ assert_exit() {
 
 assert_exit 0 "main" "allows main"
 assert_exit 0 "develop" "allows develop"
-assert_exit 0 "feat/69-enforce-branch-names" "allows feat with issue"
+assert_exit 0 "feat/69-enforce-branch-names" "allows feat with bare issue"
+assert_exit 0 "feat/roo-39-bible-reader" "allows feat with Linear id"
 assert_exit 0 "fix/45-typo" "allows fix with issue"
+assert_exit 0 "fix/roo-159-stg-docker-uv" "allows fix with Linear id"
 assert_exit 0 "hotfix/9-prod-crash" "allows hotfix"
 assert_exit 0 "refactor/1-cleanup" "allows refactor"
 assert_exit 0 "perf/2-speed-up" "allows perf"
@@ -52,7 +54,7 @@ assert_exit 0 "spike/explore-calendar" "allows spike without issue"
 
 assert_exit 1 "feat/add-booking-grid" "rejects feat without issue" "Invalid branch name"
 assert_exit 1 "Feat/1-foo" "rejects uppercase type" "Expected one of"
-assert_exit 1 "feat/1-Foo" "rejects uppercase slug" "feat/69-enforce-branch-names"
+assert_exit 1 "feat/1-Foo" "rejects uppercase slug" "feat/roo-39-bible-reader"
 assert_exit 1 "feat/1-" "rejects empty slug" "Invalid branch name"
 assert_exit 1 "feat/1-bad--" "rejects consecutive hyphens" "Invalid branch name"
 assert_exit 1 "feat/1--bad" "rejects leading hyphen in slug segment" "Invalid branch name"
@@ -60,6 +62,10 @@ assert_exit 1 "release/1.4.0-rc.1" "rejects release pre-release" "release/<major
 assert_exit 1 "spike/" "rejects empty spike slug" "Invalid branch name"
 assert_exit 1 "random-branch" "rejects unstructured name" "Invalid branch name"
 assert_exit 1 "feature/1-foo" "rejects unknown type" "Invalid branch name"
+assert_exit 1 "fix/ROO-159-foo" "rejects uppercase Linear team key" "Linear id (roo-39) or bare digits (39)"
+assert_exit 1 "fix/roo-foo" "rejects Linear team key without number" "Invalid branch name"
+assert_exit 1 "fix/roo--1-foo" "rejects empty segment after Linear team key" "Invalid branch name"
+assert_exit 1 "fix/roo1-foo" "rejects Linear team key without hyphen" "Invalid branch name"
 
 if [[ "${fail_count}" -gt 0 ]]; then
   echo "${fail_count} failed, ${pass_count} passed"
